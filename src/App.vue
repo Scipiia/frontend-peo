@@ -1,16 +1,29 @@
 <template>
-  <img alt="Vue logo" src="./assets/logo.png">
-  <HelloWorld msg="Welcome to Your Vue.js App"/>
+  <div id="app">
+    <nav id="hyi">
+      <router-link to="/app/fff">Home</router-link> |
+      <router-link to="/app/message">Form</router-link> |
+<!--      <router-link to="/app/send_form">OrderS</router-link> |-->
+      <router-link to="/app/orders">Orders</router-link>
+<!--      <router-link to="/app/orders/order">Orders</router-link>-->
+    </nav>
+    <hr />
+    <router-view></router-view>
+  </div>
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue'
+// import HelloWorld from './components/HelloWorld.vue'
+// import MessageForm from "@/components/MessageForm.vue";
+//import OrdersDetails from "@/components/OrdersDetails.vue";
 
 export default {
   name: 'App',
-  components: {
-    HelloWorld
-  }
+  //components: {OrdersDetails},
+  // components: {
+  //   HelloWorld,
+  //   MessageForm,
+  // }
 }
 </script>
 
@@ -21,6 +34,12 @@ export default {
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
   color: #2c3e50;
-  margin-top: 60px;
+  margin-top: 20px;
+  background-color: #42b983;
 }
+
+#hyi {
+  background-color: red;
+}
+
 </style>
