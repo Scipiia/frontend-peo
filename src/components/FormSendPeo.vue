@@ -103,10 +103,22 @@ const route = useRoute();
 
 // Список доступных форм (можно загрузить с сервера)
 const forms = [
-  { id: '1', label: 'КП45 с импостом' },
-  { id: '2', label: 'КП40 без импоста' },
-  { id: '3', label: 'КП50' },
-  { id: '4', label: 'КП55' },
+  { id: '1', label: 'глухарь КП45 с импостом' },
+  { id: '2', label: 'глухарь КП45 без импоста' },
+  { id: '3', label: 'глухарь П-образ. КПТ74 сбор' },
+  { id: '4', label: 'глухарь П-образ. КПТ74 пресс' },
+  { id: '5', label: 'глухарь Алютех сбор' },
+  { id: '6', label: 'глухарь П шуко' },
+  { id: '7', label: 'глухарь Алютех F50' },
+  { id: '8', label: 'глухарь П-образ КП45 пресс' },
+  { id: '9', label: 'глухарь П-образ КП45 сбор' },
+  { id: '10', label: 'глухарь КПТ74' },
+  { id: '11', label: 'глухарь КП45 с замком' },
+  { id: '12', label: 'глухарь СЛ60 сбор' },
+  { id: '13', label: 'глухарь СЛ60 пресс' },
+  { id: '14', label: 'глухарь 45400 2м' },
+  { id: '15', label: 'глухарь 45400' },
+  { id: '16', label: 'КП55' },
 ];
 
 // Выбранная форма
@@ -231,11 +243,25 @@ function createRequestData(formData) {
     ystan_yplotnitel: formData.value.ystanovka_yplotn || 0,
     zashivka: formData.value.zashivka || 0,
     profil: formConfig.value.name,
+    napil_stoiki_do3m: formData.value.napil_stoiki_do3m || 0,
+    napil_stoiki_bol3m: formData.value.napil_stoiki_bol3m || 0,
+    napil_rigel_do1m: formData.value.napil_rigel_do1m || 0,
+    napil_rigel_bol1m: formData.value.napil_rigel_bol1m || 0,
+    sverl_rigel_zamok: formData.value.sverl_rigel_zamok || 0,
+    ystan_zamkov: formData.value.ystan_zamkov || 0,
+    napil_shtapik: formData.value.napil_shtapik || 0,
+    ypakovka: formData.value.ypakovka || 0,
+    frezer_rigel: formData.value.frezer_rigel || 0,
+    obrabot_ram: formData.value.obrabot_ram || 0,
+    hands_sborka: formData.value.hands_sborka || 0,
+    frezer_nastr: formData.value.frezer_nastr || 0,
+    shtiftovka: formData.value.shtiftovka || 0,
+    ystanovka_zapoln: formData.value.ystanovka_zapoln || 0,
     //...formData.value,
     //17
   };
 
-  //console.log("Generated requestData:", requestData);
+  console.log("Generated requestData:", requestData);
   return requestData;
 }
 
