@@ -12,15 +12,22 @@
     </div>
 
     <!-- Выбор формы -->
-    <div class="form-selector">
-      <button
-          v-for="form in forms"
-          :key="form.id"
-          :class="{ active: selectedForm === form.id }"
-          @click="selectForm(form.id)"
-      >
-        {{ form.label }}
-      </button>
+    <!-- Выбор формы по группам -->
+    <div class="form-selector-grouped">
+      <div v-for="group in productGroups" :key="group.groupId" class="form-group">
+        <h3>{{ group.groupName }}</h3>
+        <div class="form-buttons">
+          <button
+              v-for="form in group.forms"
+              :key="form.id"
+              :class="{ active: selectedForm === form.id }"
+              @click="selectForm(form.id)"
+              class="form-button"
+          >
+            {{ form.label }}
+          </button>
+        </div>
+      </div>
     </div>
 
     <div>
@@ -35,7 +42,7 @@
 
     <!-- Отображение формы -->
     <div v-if="selectedForm" class="form-main">
-      <h3>Форма: {{ currentFormName }}</h3>
+      <h3>Форма: {{ currentFormGroup.groupName }}</h3>
 
       <div class="card-info1">
         <form @submit.prevent="handleSubmit" class="form-form">
@@ -102,23 +109,51 @@ import router from "@/router";
 const route = useRoute();
 
 // Список доступных форм (можно загрузить с сервера)
-const forms = [
-  { id: '1', label: 'глухарь КП45 с импостом' },
-  { id: '2', label: 'глухарь КП45 без импоста' },
-  { id: '3', label: 'глухарь П-образ. КПТ74 сбор' },
-  { id: '4', label: 'глухарь П-образ. КПТ74 пресс' },
-  { id: '5', label: 'глухарь Алютех сбор' },
-  { id: '6', label: 'глухарь П шуко' },
-  { id: '7', label: 'глухарь Алютех F50' },
-  { id: '8', label: 'глухарь П-образ КП45 пресс' },
-  { id: '9', label: 'глухарь П-образ КП45 сбор' },
-  { id: '10', label: 'глухарь КПТ74' },
-  { id: '11', label: 'глухарь КП45 с замком' },
-  { id: '12', label: 'глухарь СЛ60 сбор' },
-  { id: '13', label: 'глухарь СЛ60 пресс' },
-  { id: '14', label: 'глухарь 45400 2м' },
-  { id: '15', label: 'глухарь 45400' },
-  { id: '16', label: 'КП55' },
+// Сгруппированный список доступных форм
+const productGroups = [
+  {
+    groupId: '1', // ID группы глухих окон
+    groupName: 'Глухие изделия',
+    forms: [
+      { id: '1', label: 'глухарь КП45 с импостом' },
+      { id: '2', label: 'глухарь КП45 без импоста' },
+      { id: '3', label: 'глухарь П-образ. КПТ74 сбор' },
+      { id: '4', label: 'глухарь П-образ. КПТ74 пресс' },
+      { id: '5', label: 'глухарь Алютех сбор' },
+      { id: '6', label: 'глухарь П шуко' },
+      { id: '7', label: 'глухарь Алютех F50' },
+      { id: '8', label: 'глухарь П-образ КП45 пресс' },
+      { id: '9', label: 'глухарь П-образ КП45 сбор' },
+      { id: '10', label: 'глухарь КПТ74' },
+      { id: '11', label: 'глухарь КП45 с замком' },
+      { id: '12', label: 'глухарь СЛ60 сбор' },
+      { id: '13', label: 'глухарь СЛ60 пресс' },
+      { id: '14', label: 'глухарь 45400 2м' },
+      { id: '15', label: 'глухарь 45400' },
+      { id: '16', label: 'КП55' },
+    ]
+  },
+  {
+    groupId: '2', // ID группы окон
+    groupName: 'Окна',
+    forms: [
+      // Здесь будут ваши изделия типа "окна"
+      // Примеры (замените на реальные):
+      { id: '101', label: 'Створка КП45 поворотная' },
+      { id: '102', label: 'Створка КП45 откидная' },
+      { id: '103', label: 'Окно КП45 стандартное' },
+      { id: '104', label: 'Балконный блок КП45' },
+      // ... добавьте остальные формы для окон
+    ]
+  }
+  // Можно легко добавить другие группы, например:
+  // {
+  //   groupId: '3',
+  //   groupName: 'Двери',
+  //   forms: [
+  //     // ... формы для дверей
+  //   ]
+  // }
 ];
 
 // Выбранная форма
@@ -143,9 +178,17 @@ const cardInfo = ref({
 });
 
 // Вычисляемое свойство для имени текущей формы
-const currentFormName = computed(() => {
-  return forms.find((f) => f.id === selectedForm.value)?.label || 'Неизвестная форма';
+const currentFormGroup = computed(() => {
+  if (!selectedForm.value) return null;
+  for (const group of productGroups) {
+    if (group.forms.some(f => f.id === selectedForm.value)) {
+      return group;
+    }
+  }
+  return null;
 });
+
+console.log(currentFormGroup)
 
 const multiplier = ref(1);
 
@@ -411,6 +454,52 @@ button:hover {
   flex: 2;
   max-width: 10%;
   align-items: center;
+}
+
+/* Группировка форм */
+.form-selector-grouped {
+  margin-bottom: 20px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+}
+
+.form-group h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.form-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.form-button {
+  padding: 8px 12px;
+  background-color: #f5f5f5;
+  color: #333;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.form-button:hover {
+  background-color: #e0e0e0;
+  border-color: #ccc;
+}
+
+.form-button.active {
+  background-color: #007bff;
+  color: white;
+  border-color: #007bff;
 }
 
 </style>
