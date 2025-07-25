@@ -61,6 +61,18 @@
               class="form-count"
           />
 
+          <label>Время:</label>
+          <input
+              v-if="field.type === 'number'"
+              :type="field.type"
+              :id="field.minutes"
+              v-model="formData[field.minutes]"
+              @input="updateValue(field)"
+              class="form-count"
+              step="any"
+          />
+
+
           <label>Ответственный:</label>
           <select v-model="formData['worker_' + field.name]">
             <option value="">-- Не назначен --</option>
@@ -72,19 +84,6 @@
               {{ worker.last_name }}
             </option>
           </select>
-
-          <!-- Выпадающий список для выбора работника -->
-<!--          <label for="workerSelect">Выберите работника:</label>-->
-<!--          <select id="workerSelect" v-model="selectedWorker">-->
-<!--            <option disabled value="">&#45;&#45; Выберите работника &#45;&#45;</option>-->
-<!--            <option-->
-<!--                v-for="worker in workersList"-->
-<!--                :key="worker.id"-->
-<!--                :value="worker.id"-->
-<!--            >-->
-<!--              {{ worker.last_name }} ({{ worker.profession }})-->
-<!--            </option>-->
-<!--          </select>-->
 
         </div>
         <button class="button_submit" type="submit">Отправить</button>
@@ -98,6 +97,7 @@
 import { ref, computed } from 'vue';
 import { useRoute } from 'vue-router';
 import axios from 'axios';
+import router from "@/router";
 
 const route = useRoute();
 
@@ -168,6 +168,7 @@ function updateValue(field) {
   const countKey = 'count_' + field.name; // Уникальный ключ для count
   const count = formData.value[countKey]; // Текущее значение "Количество"
   const baseValue = field.value; // Базовое значение (value)
+ // const minute = field.minutes;
 
   // Обновляем значение в formData
   formData.value[field.name] = parseFloat(count * baseValue).toFixed(3);
@@ -204,12 +205,14 @@ async function selectForm(formId) {
       if (field.value !== undefined) {
         formData.value[field.name] = field.value; // Устанавливаем значение по умолчанию
         formData.value['count_' + field.name] = field.count;
+        formData.value[field.minutes] = field.minutes;
 
         // Инициализация выбранного сотрудника
         formData.value['worker_' + field.name] = ''; // По умолчанию пусто
       } else {
         formData.value[field.name] = ''; // Пустое значение, если default отсутствует
         formData.value['count_' + field.name] = ''; // Пустое значение, если default отсутствует
+        formData.value[field.minutes] = '';
       }
     });
 
@@ -267,7 +270,6 @@ function createRequestData(formData) {
 
 
 
-
 // Функция для отправки данных на сервер
 async function handleSubmit() {
   //const currentDate = new Date().toISOString();
@@ -288,11 +290,21 @@ async function handleSubmit() {
     // Отправка POST-запроса на сервер
     const responseForm = await axios.post('http://localhost:8080/api/orders/order/product', requestData);
 
-    const responseAssign = await axios.post('http://localhost:8080/api/orders/order/assignments', assignments)
+    //const responseAssign = await axios.post('http://localhost:8080/api/orders/order/assignments', assignments)
+
+    // Берём ID из ответа
+    const orderId = responseForm.data.id; // или responseForm.data.ID
+
+// Редиректим на страницу печати по ID
+    //router.push(`/api/master/orders/order/${orderId}`);
+    router.push({
+      name: "FormPrintNorm",
+      params: {id: orderId}
+    });
 
 
-    console.log('Ответ от сервера (форма):', responseForm.data);
-    console.log('Ответ от сервера (назначения):', responseAssign.data);
+    console.log('Ответ от сервера (форма):', responseForm.data.id);
+   // console.log('Ответ от сервера (назначения):', responseAssign.data);
   } catch (error) {
     console.error('Ошибка:', error.response ? error.response.data : error.message);
   }

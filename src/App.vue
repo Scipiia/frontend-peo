@@ -2,9 +2,9 @@
   <div id="app">
     <nav id="hyi">
       <router-link to="/app/fff">Home</router-link> |
-      <router-link to="/app/message">Form</router-link> |
+      <router-link to="/api/message">Form</router-link> |
 <!--      <router-link to="/app/send_form">OrderS</router-link> |-->
-      <router-link to="/app/orders">Orders</router-link>
+      <router-link to="/api/orders">Orders</router-link>
 <!--      <router-link to="/app/orders/order">Orders</router-link>-->
     </nav>
     <hr />
