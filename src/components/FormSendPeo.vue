@@ -8,6 +8,7 @@
       <p><strong>Название:</strong> {{ cardInfo.name }}</p>
       <p><strong>Количество:</strong> {{ cardInfo.count }}</p>
       <p><strong>Цвет:</strong> {{ cardInfo.color }}</p>
+      <p><strong>Заказчик:</strong> {{ cardInfo.customer }}</p>
       <img :src="`data:image/png;base64,${cardInfo.image}`" width="180" alt="Order Image" />
     </div>
 
@@ -56,6 +57,7 @@
               v-model="formData[field.name]"
               class="form-input"
               step="any"
+              min="0"
           />
 
           <label>Количество:</label>
@@ -66,17 +68,20 @@
               v-model="formData['count_' + field.name]"
               @input="updateValue(field)"
               class="form-count"
+              step="any"
+              min="0"
           />
 
           <label>Время:</label>
           <input
               v-if="field.type === 'number'"
               :type="field.type"
-              :id="field.minutes"
-              v-model="formData[field.minutes]"
+              :id="'time_' + field.name"
+              v-model="formData['time_' + field.name]"
               @input="updateValue(field)"
               class="form-count"
               step="any"
+              min="0"
           />
 
 
@@ -130,30 +135,43 @@ const productGroups = [
       { id: '13', label: 'глухарь СЛ60 пресс' },
       { id: '14', label: 'глухарь 45400 2м' },
       { id: '15', label: 'глухарь 45400' },
-      { id: '16', label: 'КП55' },
+      { id: '31', label: 'окна Алютех глухарь косой' },
+      { id: '32', label: 'окна Алютех глухарь' },
     ]
   },
   {
     groupId: '2', // ID группы окон
     groupName: 'Окна',
     forms: [
-      // Здесь будут ваши изделия типа "окна"
-      // Примеры (замените на реальные):
-      { id: '101', label: 'Створка КП45 поворотная' },
-      { id: '102', label: 'Створка КП45 откидная' },
-      { id: '103', label: 'Окно КП45 стандартное' },
-      { id: '104', label: 'Балконный блок КП45' },
-      // ... добавьте остальные формы для окон
+      { id: '16', label: 'окна Шуко вент створка' },
+      { id: '17', label: 'окна Шуко эркер один глух' },
+      { id: '18', label: 'окна Шуко Эркер' },
+      { id: '19', label: 'окна Шуко штульп' },
+      { id: '20', label: 'окна Шуко' },
+      { id: '21', label: 'окна Гармошка' },
+      { id: '22', label: 'окна Алютех вент створка' },
+      { id: '23', label: 'рама HI сбор' },
+      { id: '24', label: 'окна Алютех Hi' },
+      { id: '25', label: 'окна Алютех MACO' },
+      { id: '26', label: 'окна Алютех ROTO W77' },
+      { id: '27', label: 'окна Алютех ROTO' },
+      { id: '28', label: 'окна Алютех наруж отк' },
+      { id: '29', label: 'окна Алютех Shtublina' },
+      { id: '30', label: 'окна Алютех PSK' },
+      { id: '33', label: 'окна КПТ74 с ручкой Roto' },
+      { id: '34', label: 'окна КПТ74 с ручкой Maco' },
+      { id: '35', label: 'окна КПТ74 с ручкой Giesse' },
+      { id: '36', label: 'створки окна КП45' },
+      { id: '37', label: 'окна КП45' },
+    ]
+  },
+  {
+    groupId: '3', // ID группы окон
+    groupName: 'Окна',
+    forms: [
+      { id: '38', label: 'идфидфдвыфджыдва' },
     ]
   }
-  // Можно легко добавить другие группы, например:
-  // {
-  //   groupId: '3',
-  //   groupName: 'Двери',
-  //   forms: [
-  //     // ... формы для дверей
-  //   ]
-  // }
 ];
 
 // Выбранная форма
@@ -167,6 +185,7 @@ const workersList = ref([]);
 // Данные для отправки
 const formData = ref({});
 
+console.log("ROOOOOOOO", route.query)
 
 // Данные карточки (можно загрузить с сервера или передать через query/state)
 const cardInfo = ref({
@@ -175,6 +194,7 @@ const cardInfo = ref({
   count: route.query.count || 0,
   color: route.query.color || 'Неизвестно',
   image: route.query.image || '',
+  customer: route.query.customer || '',
 });
 
 // Вычисляемое свойство для имени текущей формы
@@ -188,7 +208,17 @@ const currentFormGroup = computed(() => {
   return null;
 });
 
-console.log(currentFormGroup)
+const formGroupsMap = computed(() => {
+  const map = {};
+  productGroups.forEach(group => {
+    group.forms.forEach(form => {
+      map[form.id] = group.groupId;
+    });
+  });
+  return map;
+});
+
+//console.log("CUUUUUUUUUUUU", currentFormGroup)
 
 const multiplier = ref(1);
 
@@ -240,7 +270,7 @@ async function selectForm(formId) {
     // Получаем данные о работниках с сервера
     const workersResponse = await axios.get('http://localhost:8080/api/orders/order/product/workers');
     workersList.value = workersResponse.data.Workers;
-    console.log("WOOORK", workersList.value)
+    //console.log("WOOORK", workersList.value)
 
     // Инициализация formData значениями по умолчанию
     formData.value = {};
@@ -248,7 +278,7 @@ async function selectForm(formId) {
       if (field.value !== undefined) {
         formData.value[field.name] = field.value; // Устанавливаем значение по умолчанию
         formData.value['count_' + field.name] = field.count;
-        formData.value[field.minutes] = field.minutes;
+        formData.value['time_' + field.name] = field.minutes;
 
         // Инициализация выбранного сотрудника
         formData.value['worker_' + field.name] = ''; // По умолчанию пусто
@@ -259,7 +289,7 @@ async function selectForm(formId) {
       }
     });
 
-    console.log("FORM", formData.value)
+    //console.log("FORM", formData.value)
 
     // Устанавливаем выбранную форму
     selectedForm.value = formId;
@@ -269,85 +299,249 @@ async function selectForm(formId) {
   }
 }
 
-function createRequestData(formData) {
+function createRequestDataGlyhari(formData) {
   //console.log("SOOOOOSKA", formData.value)
   const requestData = {
     order_num: route.query.order_num || '', // Если order_num не заполнен, отправляем пустую строку
     name: route.query.name || '', // Если name не заполнен, отправляем пустую строку
-    count: parseFloat(multiplier.value) || 0, // Преобразуем count в число, если он не заполнен, отправляем 0
-    podgotov_oboryd: parseFloat(formData.value.nastr_napil) || 0, // Преобразуем в число, если не заполнено, отправляем 0
-    napil_kontr: formData.value.napil_kontyr || 0,
-    napil_krishek: formData.value.napil_krishek || 0,
-    napil_impost: formData.value.napil_imposta || 0,
-    soedinitel: formData.value.soedinitel || 0,
-    promej_sborka: formData.value.promej_sborka || 0,
-    impost_sverlovka: formData.value.impost_sverlo || 0,
-    impost_frezerovka: formData.value.impost_frezer || 0,
-    impost_sborka: formData.value.impost_sborka || 0,
-    opres_nastr: formData.value.opressovka_nastr || 0,
-    opresovka: formData.value.opressovka || 0,
-    ystan_yplotnitel: formData.value.ystanovka_yplotn || 0,
-    zashivka: formData.value.zashivka || 0,
+    count: parseInt(route.query.count) || 0, // Преобразуем count в число, если он не заполнен, отправляем 0
+    nast_napil: parseFloat(formData.value.nastr_napil) || 0, // Преобразуем в число, если не заполнено, отправляем 0
+    napil_kontr: parseFloat(formData.value.napil_kontyr) || 0,
+    napil_krishek: parseFloat(formData.value.napil_krishek) || 0,
+    napil_impost: parseFloat(formData.value.napil_imposta )|| 0,
+    soedinitel: parseFloat(formData.value.soedinitel)|| 0,
+    promej_sborka: parseFloat(formData.value.promej_sborka) || 0,
+    impost_sverlovka: parseFloat(formData.value.impost_sverlo) || 0,
+    impost_frezerovka: parseFloat(formData.value.impost_frezer) || 0,
+    impost_sborka: parseFloat(formData.value.impost_sborka) || 0,
+    opres_nastr: parseFloat(formData.value.opres_nastr) || 0,
+    opresovka: parseFloat(formData.value.opresovka) || 0,
+    ystan_yplotnitel: parseFloat(formData.value.ystanovka_yplotn) || 0,
+    zashivka: parseFloat(formData.value.zashivka) || 0,
     profil: formConfig.value.name,
-    napil_stoiki_do3m: formData.value.napil_stoiki_do3m || 0,
-    napil_stoiki_bol3m: formData.value.napil_stoiki_bol3m || 0,
-    napil_rigel_do1m: formData.value.napil_rigel_do1m || 0,
-    napil_rigel_bol1m: formData.value.napil_rigel_bol1m || 0,
-    sverl_rigel_zamok: formData.value.sverl_rigel_zamok || 0,
-    ystan_zamkov: formData.value.ystan_zamkov || 0,
-    napil_shtapik: formData.value.napil_shtapik || 0,
-    ypakovka: formData.value.ypakovka || 0,
-    frezer_rigel: formData.value.frezer_rigel || 0,
-    obrabot_ram: formData.value.obrabot_ram || 0,
-    hands_sborka: formData.value.hands_sborka || 0,
-    frezer_nastr: formData.value.frezer_nastr || 0,
-    shtiftovka: formData.value.shtiftovka || 0,
-    ystanovka_zapoln: formData.value.ystanovka_zapoln || 0,
-    //...formData.value,
-    //17
+    napil_stoiki_do3m: parseFloat(formData.value.napil_stoiki_do3m) || 0,
+    napil_stoiki_bol3m: parseFloat(formData.value.napil_stoiki_bol3m) || 0,
+    napil_rigel_do1m: parseFloat(formData.value.napil_rigel_do1m) || 0,
+    napil_rigel_bol1m: parseFloat(formData.value.napil_rigel_bol1m) || 0,
+    sverl_rigel_zamok: parseFloat(formData.value.sverl_rigel_zamok) || 0,
+    ystan_zamkov: parseFloat(formData.value.ystan_zamkov) || 0,
+    napil_shtapik: parseFloat(formData.value.napil_shtapik) || 0,
+    ypakovka: parseFloat(formData.value.ypakovka) || 0,
+    frezer_rigel: parseFloat(formData.value.frezer_rigel) || 0,
+    obrabot_ram: parseFloat(formData.value.obrabot_ram) || 0,
+    hands_sborka: parseFloat(formData.value.hands_sborka) || 0,
+    frezer_nastr: parseFloat(formData.value.frezer_nastr) || 0,
+    shtiftovka: parseFloat(formData.value.shtiftovka) || 0,
+    ystanovka_zapoln: parseFloat(formData.value.ystanovka_zapoln) || 0,
+    napil_donnik: parseFloat(formData.value.napil_donnik) || 0,
+    adapter_napil: parseFloat(formData.value.adapter_napil) || 0,
+    adapter_ystan: parseFloat(formData.value.adapter_ystan) || 0,
+    ystan_yplotn_falc: parseFloat(formData.value.ystan_yplotn_falc) || 0
+    //total_sum: totalSum
+    //36
   };
 
-  console.log("Generated requestData:", requestData);
+  let totalSum = 0;
+  if (formConfig.value && Array.isArray(formConfig.value.fields)) {
+    formConfig.value.fields.forEach(field => {
+      //Вариант 1: Суммировать вычисленное значение времени (value * count)
+      const timeValue = parseFloat(formData.value[field.name]);
+      if (!isNaN(timeValue)) {
+        totalSum += timeValue;
+      }
+    });
+  }
+
+  requestData.total_time = parseFloat(totalSum.toFixed(3)); // Округляем до 3 знаков после запятой, если нужно
+
+  //console.log("Generated requestData for Blind Products (Group 1):WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW", requestData);
+  return requestData;
+}
+
+//TODO реквест для оконных изделии
+function createRequestDataWindows (formData) {
+  const requestData = {
+    order_num: route.query.order_num || '', // Если order_num не заполнен, отправляем пустую строку
+    name: route.query.name || '', // Если name не заполнен, отправляем пустую строку
+    count: parseFloat(multiplier.value) || 0, // Преобразуем count в число, если он не заполнен, отправляем 0
+    profil: formConfig.value.name || '',
+    podgot_oboryd: parseFloat(formData.value.podgot_oboryd) || 0,
+    napil_ram_stv: parseFloat(formData.value.napil_ram_stv) || 0,
+    napil_nram_stv: parseFloat(formData.value.napil_nram_stv) || 0,
+    napil_imposta: parseFloat(formData.value.napil_imposta) || 0,
+    sverlovka_stoek: parseFloat(formData.value.sverlovka_stoek) || 0,
+    obrabot_ram: parseFloat(formData.value.obrabot_ram) || 0,
+    obrabotka_stv: parseFloat(formData.value.obrabotka_stv )|| 0,
+    promej_sborka_stv: parseFloat(formData.value.promej_sborka_stv) || 0,
+    napil_adaptera: parseFloat(formData.value.napil_adaptera) || 0,
+    promej_sborka_ram: parseFloat(formData.value.promej_sborka_ram) || 0,
+    promej_sborka_gl: parseFloat(formData.value.promej_sborka_gl) || 0,
+    opres_ram: parseFloat(formData.value.opres_ram) || 0,
+    opres_gl: parseFloat(formData.value.opres_gl) || 0,
+    frezer_stv: parseFloat(formData.value.frezer_stv) || 0,
+    ystan_ypl_ram: parseFloat(formData.value.ystan_ypl_ram) || 0,
+    ystan_ypl_stv: parseFloat(formData.value.ystan_ypl_stv) || 0,
+    napil_tag: parseFloat(formData.value.napil_tag) || 0,
+    sverlo_tag: parseFloat(formData.value.sverlo_tag) || 0,
+    ystan_furn: parseFloat(formData.value.ystan_furn) || 0,
+    navesh_stv: parseFloat(formData.value.navesh_stv) || 0,
+    zashivka: parseFloat(formData.value.zashivka) || 0,
+    obrab_dop_profil: parseFloat(formData.value.obrab_dop_profil) || 0,
+    ystan_adaptera: parseFloat(formData.value.ystan_adaptera) || 0,
+    frezer_impost_pilon: parseFloat(formData.value.frezer_impost_pilon) || 0,
+    krepl_ygl_ram: parseFloat(formData.value.krepl_ygl_ram) || 0,
+    glyhar_dorab: parseFloat(formData.value.glyhar_dorab) || 0,
+    yplot_glyhar: parseFloat(formData.value.yplot_glyhar) || 0,
+    zashiv_glyhar: parseFloat(formData.value.zashiv_glyhar) || 0,
+    opres_stv: parseFloat(formData.value.opres_stv) || 0,
+    razbor_erkera: parseFloat(formData.value.razbor_erkera) || 0,
+    gl_window: parseFloat(formData.value.gl_window) || 0,
+    obrabot_shtylp: parseFloat(formData.value.obrabot_shtylp) || 0,
+    frezer_pod_shtylp: parseFloat(formData.value.frezer_pod_shtylp) || 0,
+    ystan_shtylp: parseFloat(formData.value.ystan_shtylp) || 0,
+    ystan_impost: parseFloat(formData.value.ystan_impost) || 0,
+    nastr_for_opres: parseFloat(formData.value.nastr_for_opres) || 0,
+    napil_ram: parseFloat(formData.value.napil_ram) || 0,
+    napil_nram: parseFloat(formData.value.napil_nram) || 0,
+    napil_dop_profil: parseFloat(formData.value.napil_dop_profil) || 0,
+    frezer_dop_profil: parseFloat(formData.value.frezer_dop_profil) || 0,
+    obrabotka_stv_rychka: parseFloat(formData.value.obrabotka_stv_rychka) || 0,
+    obrabotka_stv_zamok: parseFloat(formData.value.obrabotka_stv_zamok) || 0,
+    napil_shtylp: parseFloat(formData.value.napil_shtylp) || 0,
+    impost_sbor: parseFloat(formData.value.impost_sbor) || 0,
+    rezina_ram: parseFloat(formData.value.rezina_ram) || 0,
+    podgotov_furn: parseFloat(formData.value.podgotov_furn) || 0,
+    podgotov_ram: parseFloat(formData.value.podgotov_ram) || 0,
+    razborka: parseFloat(formData.value.razborka) || 0,
+    napil_zashit_prof: parseFloat(formData.value.napil_zashit_prof) || 0,
+    impost_frezer: parseFloat(formData.value.impost_frezer) || 0,
+    ystan_stekla_zaliv: parseFloat(formData.value.ystan_stekla_zaliv) || 0,
+    ystan_krishek: parseFloat(formData.value.ystan_krishek) || 0,
+    frezer_profil_zamazka: parseFloat(formData.value.frezer_profil_zamazka) || 0,
+    napil_stoiki_do3m: parseFloat(formData.value.napil_stoiki_do3m) || 0,
+    napil_stoiki_bol3m: parseFloat(formData.value.napil_stoiki_bol3m) || 0,
+    napil_rigel_do1m: parseFloat(formData.value.napil_rigel_do1m) || 0,
+    napil_rigel_bol1m: parseFloat(formData.value.napil_rigel_bol1m) || 0,
+    sverlo_rigel_zamok: parseFloat(formData.value.sverlo_rigel_zamok) || 0,
+    ystan_zamok: parseFloat(formData.value.ystan_zamok) || 0,
+    shtiftovka: parseFloat(formData.value.shtiftovka) || 0,
+    frezer_rigel: parseFloat(formData.value.frezer_rigel) || 0,
+    part_sborka: parseFloat(formData.value.part_sborka) || 0,
+    ystan_rez_ygl: parseFloat(formData.value.ystan_rez_ygl) || 0,
+    opres_ygl: parseFloat(formData.value.opres_ygl) || 0,
+    ystan_termovst: parseFloat(formData.value.ystan_termovst) || 0,
+    napil_shtapik:parseFloat( formData.value.napil_shtapik) || 0,
+    ypak_sekcii: parseFloat(formData.value.ypak_sekcii) || 0,
+    ypak_rigel: parseFloat(formData.value.ypak_rigel) || 0,
+    ypak_yplotn: parseFloat(formData.value.ypak_yplotn) || 0,
+    ypak_shtapik: parseFloat(formData.value.ypak_shtapik) || 0,
+    napil_donnika: parseFloat(formData.value.napil_donnika) || 0,
+    nastr_pbx: parseFloat(formData.value.nastr_pbx) || 0,
+    meh_obrab_pzr: parseFloat(formData.value.meh_obrab_pzr) || 0,
+    rabota_pbx: parseFloat(formData.value.rabota_pbx) || 0,
+    slesar_obr_furn: parseFloat(formData.value.slesar_obr_furn) || 0,
+    impost_sverlo: parseFloat(formData.value.impost_sverlo) || 0,
+    opresovka: parseFloat(formData.value.opresovka) || 0,
+    sbor_rychka: parseFloat(formData.value.sbor_rychka) || 0,
+    sbor_petli: parseFloat(formData.value.sbor_petli) || 0,
+    plastik_ystn_ram: parseFloat(formData.value.plastik_ystn_ram) || 0,
+    napil_stv: parseFloat(formData.value.napil_stv) || 0,
+    ystan_furn_stv: parseFloat(formData.value.ystan_furn_stv) || 0,
+    ystan_furn_ram: parseFloat(formData.value.ystan_furn_ram) || 0,
+    compl_otg: parseFloat(formData.value.compl_otg) || 0,
+    ypak_izd: parseFloat(formData.value.ypak_izd) || 0,
+    otgryz: parseFloat(formData.value.otgryz) || 0,
+    rasp_furn: parseFloat(formData.value.rasp_furn) || 0
+  };
+
+  let totalSum = 0;
+  if (formConfig.value && Array.isArray(formConfig.value.fields)) {
+    formConfig.value.fields.forEach(field => {
+      //Вариант 1: Суммировать вычисленное значение времени (value * count)
+      const timeValue = parseFloat(formData.value[field.name]);
+      if (!isNaN(timeValue)) {
+        totalSum += timeValue;
+      }
+    });
+  }
+
+  requestData.total_time = parseFloat(totalSum.toFixed(3));
+
   return requestData;
 }
 
 
+const GROUP_HANDLERS = {
+  1: {
+    url: 'http://localhost:8080/api/orders/order/product/gl',
+    dataFn: createRequestDataGlyhari,
+    printType: 'glyhar',  // ← тип для печати
+  },
+  2: {
+    url: 'http://localhost:8080/api/orders/order/product/window',
+    dataFn: createRequestDataWindows,
+    printType: 'window',  // ← тип для печати
+  },
+  // Добавляй новые группы сюда
+  // 3: { url: '...', dataFn: createRequestDataWorker },
+};
+
 
 // Функция для отправки данных на сервер
 async function handleSubmit() {
-  //const currentDate = new Date().toISOString();
-  const requestData = createRequestData(formData);
-  try {
-    const assignments = formConfig.value.fields.map(field => ({
-      order_num : route.query.order_num,
-      name_izd: route.query.name,
-      operation_name: field.name,
-      worker_id: parseInt(formData.value['worker_' + field.name]),
-      value: parseFloat(formData.value[field.name]),
-      count: formData.value['count_' + field.name],
-      assigned_at: new Date().toISOString() // Дата проставляется для всех операций
-    })); // Убираем операции без назначенных сотрудников
 
-    console.log('Назначения сотрудников:', assignments);
-    console.log("SELECTRDFORM", selectedForm.value)
-    // Отправка POST-запроса на сервер
-    const responseForm = await axios.post('http://localhost:8080/api/orders/order/product', requestData);
+  const currentFormId = selectedForm.value;
+  const groupId = formGroupsMap.value[currentFormId];//const currentDate = new Date().toISOString();
+
+  //console.log(`Форма ${currentFormId} относится к группе ${groupId}`);
+
+  const handler = GROUP_HANDLERS[groupId];
+
+  if (!handler) {
+    console.error('Нет обработчика для группы:', groupId);
+    alert(`Неизвестная группа: ${groupId}`);
+    return;
+  }
+
+  //const requestData = createRequestDataGlyhari(formData);
+  try {
+    // const assignments = formConfig.value.fields.map(field => ({
+    //   order_num : route.query.order_num,
+    //   name_izd: route.query.name,
+    //   operation_name: field.name,
+    //   worker_id: parseInt(formData.value['worker_' + field.name]),
+    //   value: parseFloat(formData.value[field.name]),
+    //   count: formData.value['count_' + field.name],
+    //   assigned_at: new Date().toISOString() // Дата проставляется для всех операций
+    // })); // Убираем операции без назначенных сотрудников
+
+    // Формируем данные с помощью нужной функции
+    const finalRequestData = handler.dataFn(formData);
+
+    console.log("FIIIIIINAAAAAALL", finalRequestData);
+    // Отправляем
+    const responseForm = await axios.post(handler.url, finalRequestData);
+    console.log('Успешно отправлено:', responseForm.data);
+
+    const orderId = responseForm.data.id || responseForm.data.ID;
+    if (!orderId) {
+      console.error('Не получен ID после сохранения');
+      return;
+    }
 
     //const responseAssign = await axios.post('http://localhost:8080/api/orders/order/assignments', assignments)
 
     // Берём ID из ответа
-    const orderId = responseForm.data.id; // или responseForm.data.ID
+    //const orderId = responseForm.data.id; // или responseForm.data.ID
 
 // Редиректим на страницу печати по ID
     //router.push(`/api/master/orders/order/${orderId}`);
     router.push({
       name: "FormPrintNorm",
-      params: {id: orderId}
+      params: {id: orderId},
+      query: {type: handler.printType, customer: route.query.customer}
     });
 
-
-    console.log('Ответ от сервера (форма):', responseForm.data.id);
-   // console.log('Ответ от сервера (назначения):', responseAssign.data);
   } catch (error) {
     console.error('Ошибка:', error.response ? error.response.data : error.message);
   }

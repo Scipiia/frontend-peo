@@ -70,6 +70,7 @@ async function fetchOrderDetails() {
     const orderId = route.params.id; // Получаем ID заказа из параметров маршрута
     const response = await axios.get(`http://localhost:8080/api/orders/order/${orderId}`);
     order.value = response.data;
+    console.log(order.value)
   } catch (err) {
     console.error('Ошибка при получении деталей заказа:', err);
     error.value = 'Не удалось загрузить детали заказа.';
@@ -99,21 +100,17 @@ function generateExcel() {
 function goToForm(price) {
   router.push({
     name: 'FormPagePeo',
-    params: { id: price.plan_id }, // Передаем ID карточки
+    params: { id: price.plan_id}, // Передаем ID карточки
     query: {
       order_num: order.value.order_num,
       name: price.name_position,
       count: price.count,
       color: price.plan_color,
+      customer: order.value.customer,
       image: price.image,
     },
   });
 }
-
-// function selectForm(formId) {
-//   selectedForm.value = formId;
-//   fetchFormConfig(formId);
-// }
 
 </script>
 

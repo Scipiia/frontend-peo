@@ -1,13 +1,12 @@
 <template>
   <div id="app">
-    <nav id="hyi">
-      <router-link to="/app/fff">Home</router-link> |
+    <nav id="hyi" class="no-print">
+<!--      <router-link to="/app/fff">Home</router-link> |-->
       <router-link to="/api/message">Form</router-link> |
 <!--      <router-link to="/app/send_form">OrderS</router-link> |-->
       <router-link to="/api/orders">Orders</router-link>
 <!--      <router-link to="/app/orders/order">Orders</router-link>-->
     </nav>
-    <hr />
     <router-view></router-view>
   </div>
 </template>
@@ -40,6 +39,11 @@ export default {
 
 #hyi {
   background-color: red;
+}
+@media print {
+  .no-print {
+    display: none !important;
+  }
 }
 
 </style>
