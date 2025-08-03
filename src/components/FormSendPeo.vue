@@ -166,12 +166,36 @@ const productGroups = [
     ]
   },
   {
-    groupId: '3', // ID группы окон
-    groupName: 'Окна',
+    groupId: '3',
+    groupName: 'Двери',
     forms: [
-      { id: '38', label: 'идфидфдвыфджыдва' },
+      { id: '38', label: 'двери Шуко AWS50 1.5П' },
+      { id: '39', label: 'двери Шуко AWS50 1П' },
+      { id: '40', label: 'двери Шуко AWS75 1.5П' },
+      { id: '41', label: 'двери Шуко AWS75 1П' },
+      { id: '42', label: 'двери 2П противопожарные КПТ74' },
+      { id: '43', label: 'двери 2П Антипаника КПТ74' },
+      { id: '44', label: 'двери 2П КПТ74 (2)' },
+      { id: '45', label: 'двери 1П КПТ74 (2)' },
+      { id: '46', label: 'двери 2П СТ71' },
+      { id: '47', label: 'двери 1П СТ71' },
+      { id: '48', label: 'двери 1.5П Алютех W72 Hi' },
+      { id: '49', label: 'двери 1.5П Алютех W72 (2)' },
+      { id: '50', label: 'двери 1П Алютех Hi' },
+      { id: '51', label: 'двери 1П Алютех (2)' },
+      { id: '52', label: 'двери 1П Алютех 111' },
+      { id: '53', label: 'двери 2П КП45 без притвора' },
+      { id: '54', label: 'двери 1.5П КП45 (2)' },
+      { id: '55', label: 'двери 1П КП45 (2)' },
+      { id: '56', label: 'двери 2П КП45 маятник' },
+      { id: '57', label: 'двери 2П маятник' },
+      { id: '58', label: 'двери 1П маятник' },
+      { id: '59', label: 'двери 2П откат' },
+      { id: '60', label: 'двери 1П откат' },
+      { id: '61', label: 'двери 2П автомат' },
+      { id: '62', label: 'Створки туалетные' },
     ]
-  }
+  },
 ];
 
 // Выбранная форма
@@ -266,6 +290,7 @@ async function selectForm(formId) {
     // Получаем данные формы с сервера
     const FormResponse = await axios.get(`http://localhost:8080/api/orders/order/product/form?idForm=${formId}`);
     formConfig.value = FormResponse.data;
+    console.log("Получение формы", FormResponse)
 
     // Получаем данные о работниках с сервера
     const workersResponse = await axios.get('http://localhost:8080/api/orders/order/product/workers');
@@ -470,6 +495,99 @@ function createRequestDataWindows (formData) {
   return requestData;
 }
 
+//TODO реквест для дверных изделии
+function createRequestDataDoor (formData) {
+  const requestData = {
+    order_num: route.query.order_num || '', // Если order_num не заполнен, отправляем пустую строку
+    name: route.query.name || '', // Если name не заполнен, отправляем пустую строку
+    count: parseFloat(multiplier.value) || 0, // Преобразуем count в число, если он не заполнен, отправляем 0
+    profil: formConfig.value.name || '',
+    napil_ram_stv: parseFloat(formData.value.napil_ram_stv) || 0,
+    petli_obr: parseFloat(formData.value.petli_obr) || 0,
+    zamok_obr: parseFloat(formData.value.zamok_obr) || 0,
+    shping_obr_stv: parseFloat(formData.value.shping_obr_stv) || 0,
+    shping_obr_ram: parseFloat(formData.value.shping_obr_ram) || 0,
+    ystan_zakld: parseFloat(formData.value.ystan_zakld) || 0,
+    sverl_otv_shtift: parseFloat(formData.value.sverl_otv_shtift )|| 0,
+    frezer_stoek_rigel: parseFloat(formData.value.frezer_stoek_rigel) || 0,
+    sborka_ram: parseFloat(formData.value.sborka_ram) || 0,
+    shitf_ram: parseFloat(formData.value.shitf_ram) || 0,
+    opres_stv: parseFloat(formData.value.opres_stv) || 0,
+    sbor_stv: parseFloat(formData.value.sbor_stv) || 0,
+    shift_stv: parseFloat(formData.value.shift_stv) || 0,
+    nanes_klei: parseFloat(formData.value.nanes_klei) || 0,
+    ystan_ypl_ram: parseFloat(formData.value.ystan_ypl_ram) || 0,
+    ystan_ypl_stv: parseFloat(formData.value.ystan_ypl_stv) || 0,
+    yst_zamok_nakl: parseFloat(formData.value.yst_zamok_nakl) || 0,
+    yst_shping_otv: parseFloat(formData.value.yst_shping_otv) || 0,
+    sbor_petli_ram: parseFloat(formData.value.sbor_petli_ram) || 0,
+    sbor_yst_porog: parseFloat(formData.value.sbor_yst_porog) || 0,
+    naveshiv: parseFloat(formData.value.naveshiv) || 0,
+    zashiv: parseFloat(formData.value.zashiv) || 0,
+    opres_ram: parseFloat(formData.value.opres_ram) || 0,
+    sbor_petli_stv: parseFloat(formData.value.sbor_petli_stv) || 0,
+    nastr_stanok: parseFloat(formData.value.nastr_stanok) || 0,
+    nastr_pbx: parseFloat(formData.value.nastr_pbx) || 0,
+    meh_obrab_pzr: parseFloat(formData.value.meh_obrab_pzr) || 0,
+    rabota_pbx: parseFloat(formData.value.rabota_pbx) || 0,
+    frezer_nastr: parseFloat(formData.value.frezer_nastr) || 0,
+    frezer_porog_sborka: parseFloat(formData.value.frezer_porog_sborka) || 0,
+    frezer_yst_shtyp: parseFloat(formData.value.frezer_yst_shtyp) || 0,
+    opres_nastr: parseFloat(formData.value.opres_nastr) || 0,
+    opres: parseFloat(formData.value.opres) || 0,
+    podg_derj_shetki: parseFloat(formData.value.podg_derj_shetki) || 0,
+    yst_porog_ypl_dr: parseFloat(formData.value.yst_porog_ypl_dr) || 0,
+    naveshiv_stv: parseFloat(formData.value.naveshiv_stv) || 0,
+    yst_zapoln: parseFloat(formData.value.yst_zapoln) || 0,
+    impost_napil: parseFloat(formData.value.impost_napil) || 0,
+    impost_frezer: parseFloat(formData.value.impost_frezer) || 0,
+    impost_sverlo: parseFloat(formData.value.impost_sverlo) || 0,
+    impost_yst: parseFloat(formData.value.impost_yst) || 0,
+    impost_shtift: parseFloat(formData.value.impost_shtift) || 0,
+    ypl_falc: parseFloat(formData.value.ypl_falc) || 0,
+    napil_nalich: parseFloat(formData.value.napil_nalich) || 0,
+    napil_ram: parseFloat(formData.value.napil_ram) || 0,
+    napil_stv: parseFloat(formData.value.napil_stv) || 0,
+    kontr_sbork: parseFloat(formData.value.kontr_sbork) || 0,
+    sverl_ram: parseFloat(formData.value.sverl_ram) || 0,
+    sverl_zink: parseFloat(formData.value.sverl_zink) || 0,
+    zashit_pl: parseFloat(formData.value.zashit_pl) || 0,
+    sbor_ram: parseFloat(formData.value.sbor_ram) || 0,
+    napil_yst_krish_stv: parseFloat(formData.value.napil_yst_krish_stv) || 0,
+    napil_yst_krish_ram: parseFloat(formData.value.napil_yst_krish_ram) || 0,
+    sbor_petli: parseFloat(formData.value.sbor_petli) || 0,
+    yst_ptli_ram_stv: parseFloat(formData.value.yst_ptli_ram_stv) || 0,
+    rezka_plast: parseFloat(formData.value.rezka_plast) || 0,
+    brysok: parseFloat(formData.value.brysok) || 0,
+    izg_pritv: parseFloat(formData.value.izg_pritv) || 0,
+    obr_pritv: parseFloat(formData.value.obr_pritv) || 0,
+    yst_pritv: parseFloat(formData.value.yst_pritv) || 0,
+    obrabotka_all: parseFloat(formData.value.obrabotka_all) || 0,
+    ystan_pln_petli: parseFloat(formData.value.ystan_pln_petli) || 0,
+    yst_fetr: parseFloat(formData.value.yst_fetr) || 0,
+    rezina: parseFloat(formData.value.rezina) || 0,
+    frezer_shping: parseFloat(formData.value.frezer_shping) || 0,
+    gl:parseFloat( formData.value.gl) || 0,
+    fortochka: parseFloat(formData.value.fortochka) || 0,
+    ypak: parseFloat(formData.value.ypak) || 0,
+  };
+
+  let totalSum = 0;
+  if (formConfig.value && Array.isArray(formConfig.value.fields)) {
+    formConfig.value.fields.forEach(field => {
+      //Вариант 1: Суммировать вычисленное значение времени (value * count)
+      const timeValue = parseFloat(formData.value[field.name]);
+      if (!isNaN(timeValue)) {
+        totalSum += timeValue;
+      }
+    });
+  }
+
+  requestData.total_time = parseFloat(totalSum.toFixed(3));
+
+  return requestData;
+}
+
 
 const GROUP_HANDLERS = {
   1: {
@@ -482,6 +600,11 @@ const GROUP_HANDLERS = {
     dataFn: createRequestDataWindows,
     printType: 'window',  // ← тип для печати
   },
+  3: {
+    url: 'http://localhost:8080/api/orders/order/product/door',
+    dataFn: createRequestDataDoor,
+    printType: 'door',  // ← тип для печати
+  }
   // Добавляй новые группы сюда
   // 3: { url: '...', dataFn: createRequestDataWorker },
 };

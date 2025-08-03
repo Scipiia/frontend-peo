@@ -37,9 +37,6 @@
       <thead>
       <tr style="background: #eee;">
         <th style="width: 50%">Доп работы</th>
-        <th style="width: 10%">Норма (ч)</th>
-        <th style="width: 10%">Норма (мин)</th>
-        <th style="width: 30%">ФИО исполнителя</th>
       </tr>
       </thead>
       <tbody>
