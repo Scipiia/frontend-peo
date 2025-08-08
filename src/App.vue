@@ -4,25 +4,17 @@
 <!--      <router-link to="/app/fff">Home</router-link> |-->
       <router-link to="/api/message">Form</router-link> |
 <!--      <router-link to="/app/send_form">OrderS</router-link> |-->
-      <router-link to="/api/orders">Orders</router-link>
-<!--      <router-link to="/app/orders/order">Orders</router-link>-->
+      <router-link to="/api/orders">Orders</router-link> |
+      <router-link to="/api/norm/orders/">Norm Orders</router-link>
     </nav>
     <router-view></router-view>
   </div>
 </template>
 
 <script>
-// import HelloWorld from './components/HelloWorld.vue'
-// import MessageForm from "@/components/MessageForm.vue";
-//import OrdersDetails from "@/components/OrdersDetails.vue";
 
 export default {
   name: 'App',
-  //components: {OrdersDetails},
-  // components: {
-  //   HelloWorld,
-  //   MessageForm,
-  // }
 }
 </script>
 

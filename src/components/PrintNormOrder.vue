@@ -19,7 +19,7 @@
       <tr v-for="op in filteredOperations" :key="op.id">
         <td>{{ op.name }}</td>
         <td>{{ op.value.toFixed(3) }}</td>
-        <td>{{ Math.round(op.value * 60) }}</td>
+        <td>{{ (op.value * 60).toFixed(3) }}</td>
         <td></td>
       </tr>
 
@@ -29,7 +29,7 @@
       <tr v-if="totalTime > 0" style="font-weight: bold; background-color: #f0f0f0;">
         <td style="width: 50%">Общее время</td>
         <td style="width: 10%">{{ totalTime.toFixed(3) }}</td>
-        <td style="width: 10%">{{ Math.round(totalTime * 60) }}</td>
+        <td style="width: 10%">{{ (totalTime * 60).toFixed(3) }}</td>
       </tr>
     </table>
     <!-- Новая таблица: Дополнительные работы -->
@@ -42,9 +42,9 @@
       <tbody>
       <!-- Три пустые строки для "доп работ" -->
       <tr v-for="n in 3" :key="n">
-        <td>&nbsp;</td>
-        <td>&nbsp;</td>
-        <td>&nbsp;</td>
+        <td style="width: 50%">&nbsp;</td>
+        <td style="width: 10%">&nbsp;</td>
+        <td style="width: 10%">&nbsp;</td>
         <td>&nbsp;</td>
       </tr>
       </tbody>
@@ -85,7 +85,7 @@ const fetchData = async () => {
   }
 
   try {
-    const res = await axios.get(`http://localhost:8080/api/master/orders/order/${id}?type=${type}`)
+    const res = await axios.get(`http://localhost:8080/api/orders/order/print/${id}?type=${type}`)
     // Предполагаем, что бэкенд возвращает объект с полем OrderNormData
     printData.value = res.data // ✅ если структура: { OrderNormData: { ... } }
     //console.log("RRRRRRRRRRRRRR", printData.value)
