@@ -4,7 +4,7 @@
     <p><strong>Изделие:</strong> {{ printData?.name }}</p>
     <p><strong>Количество:</strong> {{ printData?.count }}</p>
     <p><strong>Профиль:</strong> {{ printData?.profil }}</p>
-    <p><strong>Заказчик:</strong> {{ queryCustomer.customer }}</p>
+    <p><strong>Заказчик:</strong> {{ queryCustomer?.customer }}</p>
 
     <table border="1" style="width: 100%; margin: 0 0; border-collapse: collapse;">
       <thead>

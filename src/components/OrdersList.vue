@@ -1,33 +1,60 @@
 <template>
-  <div>
-    <!-- Форма для выбора даты -->
-    <form @submit.prevent="fetchOrders">
-      <label for="year">Год:</label>
-      <input type="number" id="year" v-model="year" required />
+  <div class="orders-page">
+    <h1>Заказы</h1>
 
-      <label for="month">Месяц:</label>
-      <input type="number" id="month" v-model="month" min="1" max="12" required />
+    <!-- Фильтры -->
+    <div class="filters">
+      <div>
+        <label>Год:</label>
+        <input v-model.number="year" type="number" min="2020" max="2030" />
+      </div>
 
-      <button type="submit">Получить заказы</button>
+      <div>
+        <label>Месяц:</label>
+        <select v-model="month">
+          <option v-for="(name, index) in months" :key="index + 1" :value="index + 1">
+            {{ name }}
+          </option>
+        </select>
+      </div>
 
-      <button @click="generateExcel">Download as Excel</button>
-    </form>
+      <div>
+        <label>Поиск:</label>
+        <input v-model="search" placeholder="Поиск по номеру..." />
+      </div>
 
-    <div v-if="orders && orders.length > 0">
-      <h2>Заказы:</h2>
+      <div>
+        <label>Сортировка:</label>
+        <select v-model="sortBy">
+          <option value="id">По ID</option>
+          <option value="order_num">По номеру</option>
+          <option value="customer">По клиенту</option>
+          <option value="created_at">По дате</option>
+        </select>
+        <select v-model="sortDir">
+          <option value="desc">По убыванию</option>
+          <option value="asc">По возрастанию</option>
+        </select>
+      </div>
+    </div>
+
+<!--     Кнопки -->
+    <div class="actions">
+      <button @click="generateExcel">Скачать Excel</button>
+    </div>
+
+    <!-- Таблица -->
+    <div v-if="orders && orders.length > 0" class="table-container">
       <table>
-        <!-- Заголовки таблицы -->
         <thead>
         <tr>
           <th>ID</th>
-          <th>OrderNum</th>
-          <th>Creator</th>
-          <th>Customer</th>
-          <th>Dop Info</th>
-          <th>MS_DJ_vanvan</th>
+          <th>Номер</th>
+          <th>Клиент</th>
+          <th>Создал</th>
+          <th>Примечание</th>
         </tr>
         </thead>
-        <!-- Данные заказов -->
         <tbody>
         <tr
             v-for="order in orders"
@@ -37,79 +64,88 @@
         >
           <td>{{ order.id }}</td>
           <td>{{ order.order_num }}</td>
-          <td>{{ order.creator }}</td>
           <td>{{ order.customer }}</td>
-          <td>{{ order.dop_info }}</td>
+          <td>{{ order.creator }}</td>
           <td>{{ order.ms_note }}</td>
         </tr>
         </tbody>
       </table>
     </div>
 
-    <!-- Сообщение об отсутствии заказов -->
-    <div v-else-if="errorMessage">{{ errorMessage }}</div>
-    <div v-else>Заказы не найдены.</div>
-
+    <div v-else-if="errorMessage" class="error">{{ errorMessage }}</div>
+    <div v-else class="no-orders">Заказы не найдены</div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import axios from 'axios';
-import { useRouter } from 'vue-router'; // Импортируем useRouter
+import { ref, onMounted, watch } from 'vue';
+import axios from "axios";
+import { useRouter } from 'vue-router';
 
-// Реактивные переменные
-const year = ref(new Date().getFullYear()); // Текущий год по умолчанию
-const month = ref(new Date().getMonth() + 1); // Текущий месяц по умолчанию
+const router = useRouter();
 const orders = ref([]);
 const errorMessage = ref('');
-// Инициализируем роутер
-const router = useRouter();
 
-// Функция для получения заказов
+// Фильтры
+const year = ref(new Date().getFullYear());
+const month = ref(new Date().getMonth() + 1);
+const search = ref(''); // для поиска по order_num
+const sortBy = ref('id'); // сортировка
+const sortDir = ref('desc'); // направление
+
+// Список месяцев
+const months = [
+  'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+  'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
+];
+
+// Автоматическая загрузка при открытии
+onMounted(() => {
+  fetchOrders();
+});
+
+// Функция получения заказов
 async function fetchOrders() {
   try {
-    // Очищаем предыдущие данные
     orders.value = [];
     errorMessage.value = '';
-    console.log(year, month);
 
-    // Отправляем GET-запрос на сервер
     const response = await axios.get('http://localhost:8080/api/orders', {
       params: {
         year: year.value,
         month: month.value,
-      },
+        search: search.value,
+        sortBy: sortBy.value,
+        sortDir: sortDir.value
+      }
     });
 
-    // Проверяем ответ
-    console.log('Ответ сервера:', response.data);
     if (response.data.error) {
       errorMessage.value = response.data.error;
     } else {
       orders.value = response.data.orders;
     }
   } catch (error) {
-    console.error('Ошибка при получении заказов:', error);
-    errorMessage.value = 'Не удалось получить заказы. Попробуйте позже.';
+    errorMessage.value = 'Не удалось загрузить заказы.';
+    console.error(error);
   }
 }
 
+// При изменении любого фильтра — обновляем
+watch([year, month, search, sortBy, sortDir], () => {
+  fetchOrders();
+});
+
 // Функция для скачивания Excel
 function generateExcel() {
-  // Формируем URL для скачивания Excel-файла
-  const url = `http://localhost:8080/api/generate-excel?year=${year.value}&month=${month.value}`;
-
-  // Перенаправляем пользователя на URL
+  const url = `http://localhost:8080/api/generate-excel?year=${year.value}&month=${month.value}&search=${search.value}`;
   window.location.href = url;
 }
 
-// Функция для перехода к деталям заказа
+// Переход к деталям
 function viewOrderDetails(orderId) {
   router.push({ name: 'OrdersDetails', params: { id: orderId } });
 }
-
-
 </script>
 
 <style scoped>

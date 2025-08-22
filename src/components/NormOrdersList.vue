@@ -39,6 +39,10 @@
       </div>
 
       <button @click="resetFilters" class="btn-reset">Сбросить</button>
+      <button @click="exportToExcel" class="btn btn-export">
+        📥 Выгрузить в Excel
+      </button>
+
     </div>
 
     <!-- Состояние загрузки -->
@@ -56,6 +60,7 @@
       <thead>
       <tr>
         <th>Тип</th>
+        <th>ID</th>
         <th>Номер заказа</th>
         <th>Название</th>
         <th>Кол-во</th>
@@ -67,8 +72,12 @@
       </tr>
       </thead>
       <tbody>
-      <tr v-for="order in orders" :key="order.result_id">
+      <tr v-for="order in orders"
+          :key="order.result_id"
+          @click="viewOrderDetails(order.result_id, order.type)"
+      >
         <td>{{ getTypeLabel(order.type) }}</td>
+        <td>{{ order.result_id }}</td>
         <td>{{ order.order_num }}</td>
         <td>{{ order.name }}</td>
         <td>{{ order.count }}</td>
@@ -89,6 +98,8 @@
 </template>
 
 <script>
+
+
 export default {
   name: 'NormOrdersList',
   data() {
@@ -125,10 +136,21 @@ export default {
     async fetchOrders() {
       this.loading = true;
       this.error = '';
+
+      const params = new URLSearchParams();
+
+      if (this.filters.from) params.append('from', this.filters.from);
+      if (this.filters.to) params.append('to', this.filters.to);
+      if (this.filters.orderNum) params.append('order_num', this.filters.orderNum);
+      if (this.filters.type) params.append('type', this.filters.type);
+      if (this.filters.profil) params.append('profil', this.filters.profil);
+      if (this.filters.name) params.append('name', this.filters.name);
+
       try {
-        const response = await fetch('http://localhost:8080/api/norm/orders'); // Убедись, что путь правильный
+        const response = await fetch(`http://localhost:8080/api/norm/orders?${params}`); // Убедись, что путь правильный
         const data = await response.json();
 
+        console.log("RESPONSE", response);
         if (data.error) {
           this.error = data.error;
         } else {
@@ -140,6 +162,17 @@ export default {
       } finally {
         this.loading = false;
       }
+    },
+    resetFilters() {
+      this.filters = {
+        from: '',
+        to: '',
+        orderNum: '',
+        type: '',
+        profil: '',
+        name: ''
+      };
+      this.applyFilters();
     },
 
     // Удобочитаемое название типа изделия
@@ -157,9 +190,46 @@ export default {
       const options = { day: 'numeric', month: 'numeric', year: 'numeric' };
       const date = new Date(dateString);
       return date.toLocaleDateString('ru-RU', options); // → "8.8.2025"
+    },
+    async applyFilters() {
+      this.currentPage = 1; // Сброс на первую страницу
+      await this.fetchOrders();
+    },
+    // Опционально: debounce для полей ввода (чтобы не спамить запросами)
+    debouncedApplyFilters() {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = setTimeout(() => {
+        this.applyFilters();
+      }, 500);
+    },
+    viewOrderDetails(orderId, type) {
+      // const router = useRouter();
+      // router.push({ name: 'EditNormOrder', params: { id: orderId }, query: {type: type} });
+      this.$router.push({
+        name: 'EditNormOrder',
+        params: {id: orderId},
+        query: {type: type}
+      });
+    },
+    exportToExcel() {
+      const params = new URLSearchParams();
+
+      // Добавляем только непустые фильтры
+      Object.keys(this.filters).forEach(key => {
+        if (this.filters[key]) {
+          params.append(key, this.filters[key]);
+        }
+      });
+
+      // Открываем ссылку на экспорт
+      const url = `http://localhost:8080/api/norm/orders/excel?${params}`;
+      window.open(url, '_blank');
     }
-  },
+  }
 };
+
+
+
 </script>
 
 <style scoped>

@@ -6,6 +6,7 @@ import FormPagePeo from "@/components/FormSendPeo.vue";
 import OrdersDetails from "@/components/OrdersDetails.vue";
 import PrintNormOrder from "@/components/PrintNormOrder.vue";
 import NormOrdersList from "@/components/NormOrdersList.vue";
+import EditNormOrder from "@/components/EditNormOrder.vue";
 
 
 const routes = [
@@ -15,7 +16,8 @@ const routes = [
     {path: "/api/orders/order/form/:id", name: "FormPagePeo", component: FormPagePeo},
     {path: "/api/orders/order/print/:id", name: "FormPrintNorm", component: PrintNormOrder},
     {path: "/api/orders", component: OrdersList},
-    {path: "/api/norm/orders", name: "NormOrdersList", component: NormOrdersList}
+    {path: "/api/norm/orders", name: "NormOrdersList", component: NormOrdersList},
+    {path: "/api/norm/orders/order/edit/:id", name: "EditNormOrder", component: EditNormOrder},
 ];
 
 const router = createRouter({

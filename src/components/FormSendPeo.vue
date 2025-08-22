@@ -1,238 +1,89 @@
 <template>
-  <div>
-    <h2>Форма для изделия {{ cardInfo.name }}</h2>
+  <div class="form-container">
+    <h2>Форма для изделия «{{ cardInfo.name }}»</h2>
 
     <!-- Информация о карточке -->
     <div class="card-info">
-      <p><strong>Номер заказа:</strong> {{cardInfo.order_num}} </p>
+      <p><strong>Номер заказа:</strong> {{ cardInfo.order_num }}</p>
       <p><strong>Название:</strong> {{ cardInfo.name }}</p>
       <p><strong>Количество:</strong> {{ cardInfo.count }}</p>
       <p><strong>Цвет:</strong> {{ cardInfo.color }}</p>
       <p><strong>Заказчик:</strong> {{ cardInfo.customer }}</p>
-      <img :src="`data:image/png;base64,${cardInfo.image}`" width="180" alt="Order Image" />
-    </div>
-
-    <!-- Выбор формы -->
-    <!-- Выбор формы по группам -->
-    <div class="form-selector-grouped">
-      <div v-for="group in productGroups" :key="group.groupId" class="form-group">
-        <h3>{{ group.groupName }}</h3>
-        <div class="form-buttons">
-          <button
-              v-for="form in group.forms"
-              :key="form.id"
-              :class="{ active: selectedForm === form.id }"
-              @click="selectForm(form.id)"
-              class="form-button"
-          >
-            {{ form.label }}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <div>
-      <label for="multiplier">Введите множитель:</label>
-      <input
-          type="number"
-          id="multiplier"
-          v-model="multiplier"
-          @input="updateValueCount"
+      <img
+          v-if="cardInfo.image"
+          :src="`data:image/png;base64,${cardInfo.image}`"
+          width="180"
+          alt="Order Image"
       />
     </div>
 
-    <!-- Отображение формы -->
-    <div v-if="selectedForm" class="form-main">
-      <h3>Форма: {{ currentFormGroup.groupName }}</h3>
+    <!-- Список форм по группам -->
+    <div class="forms-by-category">
+      <h4>Выберите форму нормирования</h4>
 
-      <div class="card-info1">
-        <form @submit.prevent="handleSubmit" class="form-form">
-        <div v-for="field in formFields" :key="field.name" class="form-field-row">
-          <label :for="field.name" class="form-label">{{ field.label }}:</label>
-          <!-- Поле типа number -->
-          <input
-              v-if="field.type === 'number'"
-              :type="field.type"
-              :id="field.name"
-              v-model="formData[field.name]"
-              class="form-input"
-              step="any"
-              min="0"
-          />
-
-          <label>Количество:</label>
-          <input
-              v-if="field.type === 'number'"
-              :type="field.type"
-              :id="'count_' + field.name"
-              v-model="formData['count_' + field.name]"
-              @input="updateValue(field)"
-              class="form-count"
-              step="any"
-              min="0"
-          />
-
-          <label>Время:</label>
-          <input
-              v-if="field.type === 'number'"
-              :type="field.type"
-              :id="'time_' + field.name"
-              v-model="formData['time_' + field.name]"
-              @input="updateValue(field)"
-              class="form-count"
-              step="any"
-              min="0"
-          />
-
-
-          <label>Ответственный:</label>
-          <select v-model="formData['worker_' + field.name]">
-            <option value="">-- Не назначен --</option>
-            <option
-                v-for="worker in workersList"
-                :key="worker.id"
-                :value="worker.id"
-            >
-              {{ worker.last_name }}
-            </option>
-          </select>
-
-        </div>
-        <button class="button_submit" type="submit">Отправить</button>
-        </form>
+      <div
+          v-for="(templates, category) in groupedTemplates"
+          :key="category"
+          class="category-group"
+      >
+        <h5 class="category-title">{{ categoryLabels[category] }}</h5>
+        <ul class="templates-list">
+          <li
+              v-for="tpl in templates"
+              :key="tpl.code"
+              @click="loadForm(tpl.code)"
+              class="template-item"
+          >
+            <span class="template-name">{{ tpl.name }}</span>
+<!--            <span class="template-category">{{ getCategoryShort(tpl.category) }}</span>-->
+          </li>
+        </ul>
       </div>
+    </div>
+
+    <!-- Полная форма -->
+      <div v-if="fullForm" class="full-form">
+
+        <!-- Список операций -->
+        <div class="operations-grid">
+          <div
+              v-for="op in fullForm.operations"
+              :key="op.name"
+              class="operation-row"
+          >
+            <!-- Название операции -->
+            <label class="op-label">{{ op.label }}</label>
+
+            <!-- Инпут (в минутах для удобства) -->
+            <div class="op-input-wrapper">
+              <input
+                  :value="op.value"
+                  step="0.001"
+                  min="0"
+                  class="input-minutes"
+              />
+            </div>
+<!--            <p class="">{{ op.minutes }}</p>-->
+          </div>
+
+        <button @click="saveNormirovka" :disabled="loading" class="btn-save">
+          {{ loading ? 'Сохраняем...' : 'Сохранить нормировку' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Заглушка -->
+    <div v-else-if="!loading && !fullForm" class="placeholder">
+      Выберите форму из списка, чтобы посмотреть детали
     </div>
   </div>
 </template>
 
+
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRoute } from 'vue-router';
-import axios from 'axios';
-import router from "@/router";
-
 const route = useRoute();
-
-// Список доступных форм (можно загрузить с сервера)
-// Сгруппированный список доступных форм
-const productGroups = [
-  {
-    groupId: '1', // ID группы глухих окон
-    groupName: 'Глухие изделия',
-    forms: [
-      { id: '1', label: 'глухарь КП45 с импостом' },
-      { id: '2', label: 'глухарь КП45 без импоста' },
-      { id: '3', label: 'глухарь П-образ. КПТ74 сбор' },
-      { id: '4', label: 'глухарь П-образ. КПТ74 пресс' },
-      { id: '5', label: 'глухарь Алютех сбор' },
-      { id: '6', label: 'глухарь П шуко' },
-      { id: '7', label: 'глухарь Алютех F50' },
-      { id: '8', label: 'глухарь П-образ КП45 пресс' },
-      { id: '9', label: 'глухарь П-образ КП45 сбор' },
-      { id: '10', label: 'глухарь КПТ74' },
-      { id: '11', label: 'глухарь КП45 с замком' },
-      { id: '12', label: 'глухарь СЛ60 сбор' },
-      { id: '13', label: 'глухарь СЛ60 пресс' },
-      { id: '14', label: 'глухарь 45400 2м' },
-      { id: '15', label: 'глухарь 45400' },
-      { id: '31', label: 'окна Алютех глухарь косой' },
-      { id: '32', label: 'окна Алютех глухарь' },
-    ]
-  },
-  {
-    groupId: '2', // ID группы окон
-    groupName: 'Окна',
-    forms: [
-      { id: '16', label: 'окна Шуко вент створка' },
-      { id: '17', label: 'окна Шуко эркер один глух' },
-      { id: '18', label: 'окна Шуко Эркер' },
-      { id: '19', label: 'окна Шуко штульп' },
-      { id: '20', label: 'окна Шуко' },
-      { id: '21', label: 'окна Гармошка' },
-      { id: '22', label: 'окна Алютех вент створка' },
-      { id: '23', label: 'рама HI сбор' },
-      { id: '24', label: 'окна Алютех Hi' },
-      { id: '25', label: 'окна Алютех MACO' },
-      { id: '26', label: 'окна Алютех ROTO W77' },
-      { id: '27', label: 'окна Алютех ROTO' },
-      { id: '28', label: 'окна Алютех наруж отк' },
-      { id: '29', label: 'окна Алютех Shtublina' },
-      { id: '30', label: 'окна Алютех PSK' },
-      { id: '33', label: 'окна КПТ74 с ручкой Roto' },
-      { id: '34', label: 'окна КПТ74 с ручкой Maco' },
-      { id: '35', label: 'окна КПТ74 с ручкой Giesse' },
-      { id: '36', label: 'створки окна КП45' },
-      { id: '37', label: 'окна КП45' },
-    ]
-  },
-  {
-    groupId: '3',
-    groupName: 'Двери',
-    forms: [
-      { id: '38', label: 'двери Шуко AWS50 1.5П' },
-      { id: '39', label: 'двери Шуко AWS50 1П' },
-      { id: '40', label: 'двери Шуко AWS75 1.5П' },
-      { id: '41', label: 'двери Шуко AWS75 1П' },
-      { id: '42', label: 'двери 2П противопожарные КПТ74' },
-      { id: '43', label: 'двери 2П Антипаника КПТ74' },
-      { id: '44', label: 'двери 2П КПТ74 (2)' },
-      { id: '45', label: 'двери 1П КПТ74 (2)' },
-      { id: '46', label: 'двери 2П СТ71' },
-      { id: '47', label: 'двери 1П СТ71' },
-      { id: '48', label: 'двери 1.5П Алютех W72 Hi' },
-      { id: '49', label: 'двери 1.5П Алютех W72 (2)' },
-      { id: '50', label: 'двери 1П Алютех Hi' },
-      { id: '51', label: 'двери 1П Алютех (2)' },
-      { id: '52', label: 'двери 1П Алютех 111' },
-      { id: '53', label: 'двери 2П КП45 без притвора' },
-      { id: '54', label: 'двери 1.5П КП45 (2)' },
-      { id: '55', label: 'двери 1П КП45 (2)' },
-      { id: '56', label: 'двери 2П КП45 маятник' },
-      { id: '57', label: 'двери 2П маятник' },
-      { id: '58', label: 'двери 1П маятник' },
-      { id: '59', label: 'двери 2П откат' },
-      { id: '60', label: 'двери 1П откат' },
-      { id: '61', label: 'двери 2П автомат' },
-      { id: '62', label: 'Створки туалетные' },
-    ]
-  },
-  {
-    groupId: '4',
-    groupName: 'Витражи',
-    forms: [
-      { id: '63', label: 'Витражи Кларофлекс' },
-      { id: '64', label: 'Витражи Шуко' },
-      { id: '65', label: 'Витражи Алютех 110' },
-      { id: '66', label: 'Витражи Алютех 100' },
-      { id: '67', label: 'Витраж Алютех F50' },
-      { id: '68', label: 'Витражи 50' },
-      { id: '69', label: 'Витраж 45' },
-    ]
-  },
-  {
-    groupId: '5',
-    groupName: 'Лоджии',
-    forms: [
-      { id: '70', label: 'Лоджии 45 (2)' },
-      { id: '71', label: 'Лоджии 45' },
-      { id: '72', label: 'Лоджии П90' },
-      { id: '73', label: 'Лоджии Aluteh' },
-      { id: '74', label: 'Лоджии створки 45' },
-    ]
-  }
-];
-
-// Выбранная форма
-const selectedForm = ref(null);
-
-// Данные формы, полученные с сервера
-const formConfig = ref(null);
-const workersList = ref([]);
-//const selectedWorker = ref(null); // Выбранный работник
-
-// Данные для отправки
-const formData = ref({});
-
 
 // Данные карточки (можно загрузить с сервера или передать через query/state)
 const cardInfo = ref({
@@ -244,799 +95,329 @@ const cardInfo = ref({
   customer: route.query.customer || '',
 });
 
-// Вычисляемое свойство для имени текущей формы
-const currentFormGroup = computed(() => {
-  if (!selectedForm.value) return null;
-  for (const group of productGroups) {
-    if (group.forms.some(f => f.id === selectedForm.value)) {
-      return group;
-    }
-  }
-  return null;
-});
-
-const formGroupsMap = computed(() => {
-  const map = {};
-  productGroups.forEach(group => {
-    group.forms.forEach(form => {
-      map[form.id] = group.groupId;
-    });
-  });
-  return map;
-});
-
-//console.log("CUUUUUUUUUUUU", currentFormGroup)
-
-const multiplier = ref(1);
-
-function updateValueCount() {
-  //console.log("DDDDDDDDDDDD", formData.value)
-  formFields.value.forEach((field) => {
-    const countKey = 'count_' + field.name;
-    //console.log(countKey)
-
-    formData.value[countKey] = multiplier.value * field.count;
-
-    if (field.count !== 0) {
-      formData.value[field.name] = parseFloat((multiplier.value * field.value).toFixed(3));
-    }
-
-  });
-}
-
-function updateValue(field) {
-  const countKey = 'count_' + field.name; // Уникальный ключ для count
-  const count = formData.value[countKey]; // Текущее значение "Количество"
-  const baseValue = field.value; // Базовое значение (value)
- // const minute = field.minutes;
-
-  // Обновляем значение в formData
-  formData.value[field.name] = parseFloat(count * baseValue).toFixed(3);
-
-  //console.log("RELATED", field.value)
-
-  if (field.related_fields && field.related_fields.length > 0) {
-    field.related_fields.forEach((relatedFieldName) => {
-      const relatedField = formFields.value.find((f) => f.name === relatedFieldName);
-      //console.log("sadasdasd", relatedField)
-      if (relatedField) {
-        formData.value['count_' + relatedFieldName] = count; // Устанавливаем то же количество
-        formData.value[relatedFieldName] = parseFloat(count * relatedField.value).toFixed(3); // Обновляем значение
-      }
-    });
-  }
-}
-
-function createRequestDataGlyhari(formData) {
-  //console.log("SOOOOOSKA", formData.value)
-  const requestData = {
-    order_num: route.query.order_num || '', // Если order_num не заполнен, отправляем пустую строку
-    name: route.query.name || '', // Если name не заполнен, отправляем пустую строку
-    count: parseInt(route.query.count) || 0, // Преобразуем count в число, если он не заполнен, отправляем 0
-    nast_napil: parseFloat(formData.value.nastr_napil) || 0, // Преобразуем в число, если не заполнено, отправляем 0
-    napil_kontr: parseFloat(formData.value.napil_kontyr) || 0,
-    napil_krishek: parseFloat(formData.value.napil_krishek) || 0,
-    napil_impost: parseFloat(formData.value.napil_imposta )|| 0,
-    soedinitel: parseFloat(formData.value.soedinitel)|| 0,
-    promej_sborka: parseFloat(formData.value.promej_sborka) || 0,
-    impost_sverlovka: parseFloat(formData.value.impost_sverlo) || 0,
-    impost_frezerovka: parseFloat(formData.value.impost_frezer) || 0,
-    impost_sborka: parseFloat(formData.value.impost_sborka) || 0,
-    opres_nastr: parseFloat(formData.value.opres_nastr) || 0,
-    opresovka: parseFloat(formData.value.opresovka) || 0,
-    ystan_yplotnitel: parseFloat(formData.value.ystanovka_yplotn) || 0,
-    zashivka: parseFloat(formData.value.zashivka) || 0,
-    profil: formConfig.value.name,
-    napil_stoiki_do3m: parseFloat(formData.value.napil_stoiki_do3m) || 0,
-    napil_stoiki_bol3m: parseFloat(formData.value.napil_stoiki_bol3m) || 0,
-    napil_rigel_do1m: parseFloat(formData.value.napil_rigel_do1m) || 0,
-    napil_rigel_bol1m: parseFloat(formData.value.napil_rigel_bol1m) || 0,
-    sverl_rigel_zamok: parseFloat(formData.value.sverl_rigel_zamok) || 0,
-    ystan_zamkov: parseFloat(formData.value.ystan_zamkov) || 0,
-    napil_shtapik: parseFloat(formData.value.napil_shtapik) || 0,
-    ypakovka: parseFloat(formData.value.ypakovka) || 0,
-    frezer_rigel: parseFloat(formData.value.frezer_rigel) || 0,
-    obrabot_ram: parseFloat(formData.value.obrabot_ram) || 0,
-    hands_sborka: parseFloat(formData.value.hands_sborka) || 0,
-    frezer_nastr: parseFloat(formData.value.frezer_nastr) || 0,
-    shtiftovka: parseFloat(formData.value.shtiftovka) || 0,
-    ystanovka_zapoln: parseFloat(formData.value.ystanovka_zapoln) || 0,
-    napil_donnik: parseFloat(formData.value.napil_donnik) || 0,
-    adapter_napil: parseFloat(formData.value.adapter_napil) || 0,
-    adapter_ystan: parseFloat(formData.value.adapter_ystan) || 0,
-    ystan_yplotn_falc: parseFloat(formData.value.ystan_yplotn_falc) || 0
-    //total_sum: totalSum
-    //36
-  };
-
-  let totalSum = 0;
-  if (formConfig.value && Array.isArray(formConfig.value.fields)) {
-    formConfig.value.fields.forEach(field => {
-      //Вариант 1: Суммировать вычисленное значение времени (value * count)
-      const timeValue = parseFloat(formData.value[field.name]);
-      if (!isNaN(timeValue)) {
-        totalSum += timeValue;
-      }
-    });
-  }
-
-  requestData.total_time = parseFloat(totalSum.toFixed(3)); // Округляем до 3 знаков после запятой, если нужно
-
-  //console.log("Generated requestData for Blind Products (Group 1):WWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWW", requestData);
-  return requestData;
-}
-
-//TODO реквест для оконных изделии
-function createRequestDataWindows (formData) {
-  const requestData = {
-    order_num: route.query.order_num || '', // Если order_num не заполнен, отправляем пустую строку
-    name: route.query.name || '', // Если name не заполнен, отправляем пустую строку
-    count: parseFloat(multiplier.value) || 0, // Преобразуем count в число, если он не заполнен, отправляем 0
-    profil: formConfig.value.name || '',
-    podgot_oboryd: parseFloat(formData.value.podgot_oboryd) || 0,
-    napil_ram_stv: parseFloat(formData.value.napil_ram_stv) || 0,
-    napil_nram_stv: parseFloat(formData.value.napil_nram_stv) || 0,
-    napil_imposta: parseFloat(formData.value.napil_imposta) || 0,
-    sverlovka_stoek: parseFloat(formData.value.sverlovka_stoek) || 0,
-    obrabot_ram: parseFloat(formData.value.obrabot_ram) || 0,
-    obrabotka_stv: parseFloat(formData.value.obrabotka_stv )|| 0,
-    promej_sborka_stv: parseFloat(formData.value.promej_sborka_stv) || 0,
-    napil_adaptera: parseFloat(formData.value.napil_adaptera) || 0,
-    promej_sborka_ram: parseFloat(formData.value.promej_sborka_ram) || 0,
-    promej_sborka_gl: parseFloat(formData.value.promej_sborka_gl) || 0,
-    opres_ram: parseFloat(formData.value.opres_ram) || 0,
-    opres_gl: parseFloat(formData.value.opres_gl) || 0,
-    frezer_stv: parseFloat(formData.value.frezer_stv) || 0,
-    ystan_ypl_ram: parseFloat(formData.value.ystan_ypl_ram) || 0,
-    ystan_ypl_stv: parseFloat(formData.value.ystan_ypl_stv) || 0,
-    napil_tag: parseFloat(formData.value.napil_tag) || 0,
-    sverlo_tag: parseFloat(formData.value.sverlo_tag) || 0,
-    ystan_furn: parseFloat(formData.value.ystan_furn) || 0,
-    navesh_stv: parseFloat(formData.value.navesh_stv) || 0,
-    zashivka: parseFloat(formData.value.zashivka) || 0,
-    obrab_dop_profil: parseFloat(formData.value.obrab_dop_profil) || 0,
-    ystan_adaptera: parseFloat(formData.value.ystan_adaptera) || 0,
-    frezer_impost_pilon: parseFloat(formData.value.frezer_impost_pilon) || 0,
-    krepl_ygl_ram: parseFloat(formData.value.krepl_ygl_ram) || 0,
-    glyhar_dorab: parseFloat(formData.value.glyhar_dorab) || 0,
-    yplot_glyhar: parseFloat(formData.value.yplot_glyhar) || 0,
-    zashiv_glyhar: parseFloat(formData.value.zashiv_glyhar) || 0,
-    opres_stv: parseFloat(formData.value.opres_stv) || 0,
-    razbor_erkera: parseFloat(formData.value.razbor_erkera) || 0,
-    gl_window: parseFloat(formData.value.gl_window) || 0,
-    obrabot_shtylp: parseFloat(formData.value.obrabot_shtylp) || 0,
-    frezer_pod_shtylp: parseFloat(formData.value.frezer_pod_shtylp) || 0,
-    ystan_shtylp: parseFloat(formData.value.ystan_shtylp) || 0,
-    ystan_impost: parseFloat(formData.value.ystan_impost) || 0,
-    nastr_for_opres: parseFloat(formData.value.nastr_for_opres) || 0,
-    napil_ram: parseFloat(formData.value.napil_ram) || 0,
-    napil_nram: parseFloat(formData.value.napil_nram) || 0,
-    napil_dop_profil: parseFloat(formData.value.napil_dop_profil) || 0,
-    frezer_dop_profil: parseFloat(formData.value.frezer_dop_profil) || 0,
-    obrabotka_stv_rychka: parseFloat(formData.value.obrabotka_stv_rychka) || 0,
-    obrabotka_stv_zamok: parseFloat(formData.value.obrabotka_stv_zamok) || 0,
-    napil_shtylp: parseFloat(formData.value.napil_shtylp) || 0,
-    impost_sbor: parseFloat(formData.value.impost_sbor) || 0,
-    rezina_ram: parseFloat(formData.value.rezina_ram) || 0,
-    podgotov_furn: parseFloat(formData.value.podgotov_furn) || 0,
-    podgotov_ram: parseFloat(formData.value.podgotov_ram) || 0,
-    razborka: parseFloat(formData.value.razborka) || 0,
-    napil_zashit_prof: parseFloat(formData.value.napil_zashit_prof) || 0,
-    impost_frezer: parseFloat(formData.value.impost_frezer) || 0,
-    ystan_stekla_zaliv: parseFloat(formData.value.ystan_stekla_zaliv) || 0,
-    ystan_krishek: parseFloat(formData.value.ystan_krishek) || 0,
-    frezer_profil_zamazka: parseFloat(formData.value.frezer_profil_zamazka) || 0,
-    napil_stoiki_do3m: parseFloat(formData.value.napil_stoiki_do3m) || 0,
-    napil_stoiki_bol3m: parseFloat(formData.value.napil_stoiki_bol3m) || 0,
-    napil_rigel_do1m: parseFloat(formData.value.napil_rigel_do1m) || 0,
-    napil_rigel_bol1m: parseFloat(formData.value.napil_rigel_bol1m) || 0,
-    sverlo_rigel_zamok: parseFloat(formData.value.sverlo_rigel_zamok) || 0,
-    ystan_zamok: parseFloat(formData.value.ystan_zamok) || 0,
-    shtiftovka: parseFloat(formData.value.shtiftovka) || 0,
-    frezer_rigel: parseFloat(formData.value.frezer_rigel) || 0,
-    part_sborka: parseFloat(formData.value.part_sborka) || 0,
-    ystan_rez_ygl: parseFloat(formData.value.ystan_rez_ygl) || 0,
-    opres_ygl: parseFloat(formData.value.opres_ygl) || 0,
-    ystan_termovst: parseFloat(formData.value.ystan_termovst) || 0,
-    napil_shtapik:parseFloat( formData.value.napil_shtapik) || 0,
-    ypak_sekcii: parseFloat(formData.value.ypak_sekcii) || 0,
-    ypak_rigel: parseFloat(formData.value.ypak_rigel) || 0,
-    ypak_yplotn: parseFloat(formData.value.ypak_yplotn) || 0,
-    ypak_shtapik: parseFloat(formData.value.ypak_shtapik) || 0,
-    napil_donnika: parseFloat(formData.value.napil_donnika) || 0,
-    nastr_pbx: parseFloat(formData.value.nastr_pbx) || 0,
-    meh_obrab_pzr: parseFloat(formData.value.meh_obrab_pzr) || 0,
-    rabota_pbx: parseFloat(formData.value.rabota_pbx) || 0,
-    slesar_obr_furn: parseFloat(formData.value.slesar_obr_furn) || 0,
-    impost_sverlo: parseFloat(formData.value.impost_sverlo) || 0,
-    opresovka: parseFloat(formData.value.opresovka) || 0,
-    sbor_rychka: parseFloat(formData.value.sbor_rychka) || 0,
-    sbor_petli: parseFloat(formData.value.sbor_petli) || 0,
-    plastik_ystn_ram: parseFloat(formData.value.plastik_ystn_ram) || 0,
-    napil_stv: parseFloat(formData.value.napil_stv) || 0,
-    ystan_furn_stv: parseFloat(formData.value.ystan_furn_stv) || 0,
-    ystan_furn_ram: parseFloat(formData.value.ystan_furn_ram) || 0,
-    compl_otg: parseFloat(formData.value.compl_otg) || 0,
-    ypak_izd: parseFloat(formData.value.ypak_izd) || 0,
-    otgryz: parseFloat(formData.value.otgryz) || 0,
-    rasp_furn: parseFloat(formData.value.rasp_furn) || 0
-  };
-
-  let totalSum = 0;
-  if (formConfig.value && Array.isArray(formConfig.value.fields)) {
-    formConfig.value.fields.forEach(field => {
-      //Вариант 1: Суммировать вычисленное значение времени (value * count)
-      const timeValue = parseFloat(formData.value[field.name]);
-      if (!isNaN(timeValue)) {
-        totalSum += timeValue;
-      }
-    });
-  }
-
-  requestData.total_time = parseFloat(totalSum.toFixed(3));
-
-  return requestData;
-}
-
-//TODO реквест для дверных изделии
-function createRequestDataDoor (formData) {
-  const requestData = {
-    order_num: route.query.order_num || '', // Если order_num не заполнен, отправляем пустую строку
-    name: route.query.name || '', // Если name не заполнен, отправляем пустую строку
-    count: parseFloat(multiplier.value) || 0, // Преобразуем count в число, если он не заполнен, отправляем 0
-    profil: formConfig.value.name || '',
-    napil_ram_stv: parseFloat(formData.value.napil_ram_stv) || 0,
-    petli_obr: parseFloat(formData.value.petli_obr) || 0,
-    zamok_obr: parseFloat(formData.value.zamok_obr) || 0,
-    shping_obr_stv: parseFloat(formData.value.shping_obr_stv) || 0,
-    shping_obr_ram: parseFloat(formData.value.shping_obr_ram) || 0,
-    ystan_zakld: parseFloat(formData.value.ystan_zakld) || 0,
-    sverl_otv_shtift: parseFloat(formData.value.sverl_otv_shtift )|| 0,
-    frezer_stoek_rigel: parseFloat(formData.value.frezer_stoek_rigel) || 0,
-    sborka_ram: parseFloat(formData.value.sborka_ram) || 0,
-    shitf_ram: parseFloat(formData.value.shitf_ram) || 0,
-    opres_stv: parseFloat(formData.value.opres_stv) || 0,
-    sbor_stv: parseFloat(formData.value.sbor_stv) || 0,
-    shift_stv: parseFloat(formData.value.shift_stv) || 0,
-    nanes_klei: parseFloat(formData.value.nanes_klei) || 0,
-    ystan_ypl_ram: parseFloat(formData.value.ystan_ypl_ram) || 0,
-    ystan_ypl_stv: parseFloat(formData.value.ystan_ypl_stv) || 0,
-    yst_zamok_nakl: parseFloat(formData.value.yst_zamok_nakl) || 0,
-    yst_shping_otv: parseFloat(formData.value.yst_shping_otv) || 0,
-    sbor_petli_ram: parseFloat(formData.value.sbor_petli_ram) || 0,
-    sbor_yst_porog: parseFloat(formData.value.sbor_yst_porog) || 0,
-    naveshiv: parseFloat(formData.value.naveshiv) || 0,
-    zashiv: parseFloat(formData.value.zashiv) || 0,
-    opres_ram: parseFloat(formData.value.opres_ram) || 0,
-    sbor_petli_stv: parseFloat(formData.value.sbor_petli_stv) || 0,
-    nastr_stanok: parseFloat(formData.value.nastr_stanok) || 0,
-    nastr_pbx: parseFloat(formData.value.nastr_pbx) || 0,
-    meh_obrab_pzr: parseFloat(formData.value.meh_obrab_pzr) || 0,
-    rabota_pbx: parseFloat(formData.value.rabota_pbx) || 0,
-    frezer_nastr: parseFloat(formData.value.frezer_nastr) || 0,
-    frezer_porog_sborka: parseFloat(formData.value.frezer_porog_sborka) || 0,
-    frezer_yst_shtyp: parseFloat(formData.value.frezer_yst_shtyp) || 0,
-    opres_nastr: parseFloat(formData.value.opres_nastr) || 0,
-    opres: parseFloat(formData.value.opres) || 0,
-    podg_derj_shetki: parseFloat(formData.value.podg_derj_shetki) || 0,
-    yst_porog_ypl_dr: parseFloat(formData.value.yst_porog_ypl_dr) || 0,
-    naveshiv_stv: parseFloat(formData.value.naveshiv_stv) || 0,
-    yst_zapoln: parseFloat(formData.value.yst_zapoln) || 0,
-    impost_napil: parseFloat(formData.value.impost_napil) || 0,
-    impost_frezer: parseFloat(formData.value.impost_frezer) || 0,
-    impost_sverlo: parseFloat(formData.value.impost_sverlo) || 0,
-    impost_yst: parseFloat(formData.value.impost_yst) || 0,
-    impost_shtift: parseFloat(formData.value.impost_shtift) || 0,
-    ypl_falc: parseFloat(formData.value.ypl_falc) || 0,
-    napil_nalich: parseFloat(formData.value.napil_nalich) || 0,
-    napil_ram: parseFloat(formData.value.napil_ram) || 0,
-    napil_stv: parseFloat(formData.value.napil_stv) || 0,
-    kontr_sbork: parseFloat(formData.value.kontr_sbork) || 0,
-    sverl_ram: parseFloat(formData.value.sverl_ram) || 0,
-    sverl_zink: parseFloat(formData.value.sverl_zink) || 0,
-    zashit_pl: parseFloat(formData.value.zashit_pl) || 0,
-    sbor_ram: parseFloat(formData.value.sbor_ram) || 0,
-    napil_yst_krish_stv: parseFloat(formData.value.napil_yst_krish_stv) || 0,
-    napil_yst_krish_ram: parseFloat(formData.value.napil_yst_krish_ram) || 0,
-    sbor_petli: parseFloat(formData.value.sbor_petli) || 0,
-    yst_ptli_ram_stv: parseFloat(formData.value.yst_ptli_ram_stv) || 0,
-    rezka_plast: parseFloat(formData.value.rezka_plast) || 0,
-    brysok: parseFloat(formData.value.brysok) || 0,
-    izg_pritv: parseFloat(formData.value.izg_pritv) || 0,
-    obr_pritv: parseFloat(formData.value.obr_pritv) || 0,
-    yst_pritv: parseFloat(formData.value.yst_pritv) || 0,
-    obrabotka_all: parseFloat(formData.value.obrabotka_all) || 0,
-    ystan_pln_petli: parseFloat(formData.value.ystan_pln_petli) || 0,
-    yst_fetr: parseFloat(formData.value.yst_fetr) || 0,
-    rezina: parseFloat(formData.value.rezina) || 0,
-    frezer_shping: parseFloat(formData.value.frezer_shping) || 0,
-    gl:parseFloat( formData.value.gl) || 0,
-    fortochka: parseFloat(formData.value.fortochka) || 0,
-    ypak: parseFloat(formData.value.ypak) || 0,
-  };
-
-  let totalSum = 0;
-  if (formConfig.value && Array.isArray(formConfig.value.fields)) {
-    formConfig.value.fields.forEach(field => {
-      //Вариант 1: Суммировать вычисленное значение времени (value * count)
-      const timeValue = parseFloat(formData.value[field.name]);
-      if (!isNaN(timeValue)) {
-        totalSum += timeValue;
-      }
-    });
-  }
-
-  requestData.total_time = parseFloat(totalSum.toFixed(3));
-
-  return requestData;
-}
-
-//TODO реквест для витражей изделии
-function createRequestDataVitraj (formData) {
-  const requestData = {
-    order_num: route.query.order_num || '', // Если order_num не заполнен, отправляем пустую строку
-    name: route.query.name || '', // Если name не заполнен, отправляем пустую строку
-    count: parseFloat(multiplier.value) || 0, // Преобразуем count в число, если он не заполнен, отправляем 0
-    profil: formConfig.value.name || '',
-    podgot_oboryd: parseFloat(formData.value.podgot_oboryd) || 0,
-    napil_stk_do3m: parseFloat(formData.value.napil_stk_do3m) || 0,
-    napil_stk_bol3m: parseFloat(formData.value.napil_stk_bol3m) || 0,
-    napil_stk_bol5m: parseFloat(formData.value.napil_stk_bol5m) || 0,
-    pzr: parseFloat(formData.value.pzr) || 0,
-    nastr_pbx: parseFloat(formData.value.nastr_pbx) || 0,
-    drenaj_otv: parseFloat(formData.value.drenaj_otv )|| 0,
-    zashelk_obr: parseFloat(formData.value.zashelk_obr) || 0,
-    priset_pr_obr: parseFloat(formData.value.priset_pr_obr) || 0,
-    ypl_yst: parseFloat(formData.value.ypl_yst) || 0,
-    fetr_yst: parseFloat(formData.value.fetr_yst) || 0,
-    steklo_yst: parseFloat(formData.value.steklo_yst) || 0,
-    razmet_otv: parseFloat(formData.value.razmet_otv) || 0,
-    sverlo_otv: parseFloat(formData.value.sverlo_otv) || 0,
-    naklad_yst: parseFloat(formData.value.naklad_yst) || 0,
-    panel: parseFloat(formData.value.panel) || 0,
-    naprav: parseFloat(formData.value.naprav) || 0,
-    ydlin: parseFloat(formData.value.ydlin) || 0,
-    upak: parseFloat(formData.value.upak) || 0,
-    napil_rigel_do1m: parseFloat(formData.value.napil_rigel_do1m) || 0,
-    napil_rigel_bol1m: parseFloat(formData.value.napil_rigel_bol1m) || 0,
-    nakld_napil: parseFloat(formData.value.nakld_napil) || 0,
-    napil_krish_st: parseFloat(formData.value.napil_krish_st) || 0,
-    napil_krish_rg: parseFloat(formData.value.napil_krish_rg) || 0,
-    kompl_krish: parseFloat(formData.value.kompl_krish) || 0,
-    napil_adapt: parseFloat(formData.value.napil_adapt) || 0,
-    frezer_rigel: parseFloat(formData.value.frezer_rigel) || 0,
-    fukel_yst: parseFloat(formData.value.fukel_yst) || 0,
-    stoiki_pbx: parseFloat(formData.value.stoiki_pbx) || 0,
-    zamok_yst: parseFloat(formData.value.zamok_yst) || 0,
-    zamok_yst_bolt: parseFloat(formData.value.zamok_yst_bolt) || 0,
-    rigel_sverlo_zamok: parseFloat(formData.value.rigel_sverlo_zamok) || 0,
-    naklad_sverlo: parseFloat(formData.value.naklad_sverlo) || 0,
-    ypl_yst_rigel: parseFloat(formData.value.ypl_yst_rigel) || 0,
-    ypl_yst_nakld: parseFloat(formData.value.ypl_yst_nakld) || 0,
-    ypl_yst_stoik: parseFloat(formData.value.ypl_yst_stoik) || 0,
-    adapt_yst_stoik: parseFloat(formData.value.adapt_yst_stoik) || 0,
-    adapt_yst_rigel: parseFloat(formData.value.adapt_yst_rigel) || 0,
-    termovst_yst_stoiki: parseFloat(formData.value.termovst_yst_stoiki) || 0,
-    termovst_yst_rigel: parseFloat(formData.value.termovst_yst_rigel) || 0,
-    sbor_nog: parseFloat(formData.value.sbor_nog) || 0,
-    birki: parseFloat(formData.value.birki) || 0,
-    upak_stoik: parseFloat(formData.value.upak_stoik) || 0,
-    upak_pet: parseFloat(formData.value.upak_pet) || 0,
-    upak_rigel: parseFloat(formData.value.upak_rigel) || 0,
-    upak_rigel_2m: parseFloat(formData.value.upak_rigel_2m) || 0,
-    upak_krish: parseFloat(formData.value.upak_krish) || 0,
-    upak_nakld: parseFloat(formData.value.upak_nakld) || 0,
-    upak_ypl_nog: parseFloat(formData.value.upak_ypl_nog) || 0,
-    upak_kronsht: parseFloat(formData.value.upak_kronsht) || 0,
-    vinos_gotov_izd: parseFloat(formData.value.vinos_gotov_izd) || 0,
-    yst_stik_zakld: parseFloat(formData.value.yst_stik_zakld) || 0,
-    obn_ysov_do4m: parseFloat(formData.value.obn_ysov_do4m) || 0,
-    obn_ysov_bol4m: parseFloat(formData.value.obn_ysov_bol4m) || 0,
-    otm_rezin: parseFloat(formData.value.otm_rezin) || 0,
-    obn_nastr: parseFloat(formData.value.obn_nastr) || 0,
-    tryba_prof: parseFloat(formData.value.tryba_prof) || 0,
-    kompl_shtapik: parseFloat(formData.value.kompl_shtapik) || 0,
-    otv_vo: parseFloat(formData.value.otv_vo) || 0,
-    nastr_stanok_rigel: parseFloat(formData.value.nastr_stanok_rigel) || 0,
-    frezer_stoiki_pr: parseFloat(formData.value.frezer_stoiki_pr) || 0,
-    nastr_stanok_stoiki_1: parseFloat(formData.value.nastr_stanok_stoiki_1) || 0,
-    frezer_stoiki_ygl: parseFloat(formData.value.frezer_stoiki_ygl) || 0,
-    nastr_stanok_stoiki_2: parseFloat(formData.value.nastr_stanok_stoiki_2) || 0,
-    zashit_pl: parseFloat(formData.value.zashit_pl) || 0,
-    yst_pritv:parseFloat( formData.value.yst_pritv) || 0,
-    yst_kapel: parseFloat(formData.value.yst_kapel) || 0,
-    sbor_sekci: parseFloat(formData.value.sbor_sekci) || 0,
-    germet_ypl: parseFloat(formData.value.germet_ypl) || 0,
-    upak_soed: parseFloat(formData.value.upak_soed) || 0,
-    upak_shtapik: parseFloat(formData.value.upak_shtapik) || 0,
-    upak_sekcii: parseFloat(formData.value.upak_sekcii) || 0,
-    obrezanie: parseFloat(formData.value.obrezanie) || 0,
-    vinos_sekcii: parseFloat(formData.value.vinos_sekcii) || 0,
-    ygol_korob: parseFloat(formData.value.ygol_korob) || 0,
-    pbx_vo: parseFloat(formData.value.pbx_vo) || 0,
-    clear_vo: parseFloat(formData.value.clear_vo) || 0,
-    yst_komptr_st: parseFloat(formData.value.yst_komptr_st) || 0,
-    yst_komptr_rg: parseFloat(formData.value.yst_komptr_rg) || 0,
-    upak_ygl: parseFloat(formData.value.upak_ygl) || 0,
-    napil_ygl: parseFloat(formData.value.napil_ygl) || 0,
-    narez_termovst: parseFloat(formData.value.narez_termovst) || 0,
-    narez_kompensr: parseFloat(formData.value.narez_kompensr) || 0,
-    upak_termovst: parseFloat(formData.value.upak_termovst) || 0,
-    rigel_sverlo_zamok_3m: parseFloat(formData.value.rigel_sverlo_zamok_3m) || 0,
-    rigel_nsverlo_zamok_3m: parseFloat(formData.value.rigel_nsverlo_zamok_3m) || 0,
-    obj_ysov_termvst: parseFloat(formData.value.obj_ysov_termvst) || 0,
-    yst_kps: parseFloat(formData.value.yst_kps) || 0,
-    napil_stk_bol6m: parseFloat(formData.value.napil_stk_bol6m) || 0,
-    napil_shtapik: parseFloat(formData.value.napil_shtapik) || 0,
-    rez_profil: parseFloat(formData.value.rez_profil) || 0,
-    rez_sekcii: parseFloat(formData.value.rez_sekcii) || 0,
-    part_sb_seck: parseFloat(formData.value.part_sb_seck) || 0,
-    part_sb_mark_seck: parseFloat(formData.value.part_sb_mark_seck) || 0,
-    part_sb_stoek: parseFloat(formData.value.part_sb_stoek) || 0,
-    yst_formr: parseFloat(formData.value.yst_formr) || 0,
-  };
-
-  let totalSum = 0;
-  if (formConfig.value && Array.isArray(formConfig.value.fields)) {
-    formConfig.value.fields.forEach(field => {
-      //Вариант 1: Суммировать вычисленное значение времени (value * count)
-      const timeValue = parseFloat(formData.value[field.name]);
-      if (!isNaN(timeValue)) {
-        totalSum += timeValue;
-      }
-    });
-  }
-
-  requestData.total_time = parseFloat(totalSum.toFixed(3));
-
-  return requestData;
-}
-
-//TODO реквест для лоджии
-function createRequestDataLoggia (formData) {
-  const requestData = {
-    order_num: route.query.order_num || '', // Если order_num не заполнен, отправляем пустую строку
-    name: route.query.name || '', // Если name не заполнен, отправляем пустую строку
-    count: parseFloat(multiplier.value) || 0, // Преобразуем count в число, если он не заполнен, отправляем 0
-    profil: formConfig.value.name || '',
-    podgot_oboryd: parseFloat(formData.value.podgot_oboryd) || 0,
-    napil_stk_do3m: parseFloat(formData.value.napil_stk_do3m) || 0,
-    napil_rigel_do1m: parseFloat(formData.value.napil_rigel_do1m) || 0,
-    napil_rigel_bol1m: parseFloat(formData.value.napil_rigel_bol1m) || 0,
-    napil_shtapik: parseFloat(formData.value.napil_shtapik) || 0,
-    kompl_shtapik: parseFloat(formData.value.kompl_shtapik) || 0,
-    napil_adapt_tr: parseFloat(formData.value.napil_adapt_tr )|| 0,
-    rigel_frezer: parseFloat(formData.value.rigel_frezer) || 0,
-    frezer_rigel_zamok: parseFloat(formData.value.frezer_rigel_zamok) || 0,
-    zamok_yst: parseFloat(formData.value.zamok_yst) || 0,
-    rez_pgm_st: parseFloat(formData.value.rez_pgm_st) || 0,
-    rez_pgm_rg: parseFloat(formData.value.rez_pgm_rg) || 0,
-    frez_vo: parseFloat(formData.value.frez_vo) || 0,
-    part_sb_sekci: parseFloat(formData.value.part_sb_sekci) || 0,
-    yst_pritv: parseFloat(formData.value.yst_pritv) || 0,
-    yst_formir: parseFloat(formData.value.yst_formir) || 0,
-    birki: parseFloat(formData.value.birki) || 0,
-    upak_ram: parseFloat(formData.value.upak_ram) || 0,
-    upak_stoik: parseFloat(formData.value.upak_stoik) || 0,
-    upak_rigel: parseFloat(formData.value.upak_rigel) || 0,
-    upak_rigel_2m: parseFloat(formData.value.upak_rigel_2m) || 0,
-    upak_shtapik: parseFloat(formData.value.upak_shtapik) || 0,
-    upak_adapt_tr: parseFloat(formData.value.upak_adapt_tr) || 0,
-    upak_ypl_nog: parseFloat(formData.value.upak_ypl_nog) || 0,
-    vinos_gotov_izd: parseFloat(formData.value.vinos_gotov_izd) || 0,
-    napil_pr_virav: parseFloat(formData.value.napil_pr_virav) || 0,
-    napil_ram: parseFloat(formData.value.napil_ram) || 0,
-    napil_stv: parseFloat(formData.value.napil_stv) || 0,
-    napil_pritv: parseFloat(formData.value.napil_pritv) || 0,
-    napil_soed: parseFloat(formData.value.napil_soed) || 0,
-    frez_ram: parseFloat(formData.value.frez_ram) || 0,
-    frez_stv: parseFloat(formData.value.frez_stv) || 0,
-    frez_pritv: parseFloat(formData.value.frez_pritv) || 0,
-    clear_sverl_stv: parseFloat(formData.value.clear_sverl_stv) || 0,
-    clear_sverl_ysil_stv: parseFloat(formData.value.clear_sverl_ysil_stv) || 0,
-    kraska: parseFloat(formData.value.kraska) || 0,
-    yst_rolik: parseFloat(formData.value.yst_rolik) || 0,
-    yst_zashel: parseFloat(formData.value.yst_zashel) || 0,
-    rezina: parseFloat(formData.value.rezina) || 0,
-    sbor_stv: parseFloat(formData.value.sbor_stv) || 0,
-    sbor_pritv: parseFloat(formData.value.sbor_pritv) || 0,
-    podg_kompl: parseFloat(formData.value.podg_kompl) || 0,
-    shtamp_st_stv: parseFloat(formData.value.shtamp_st_stv) || 0,
-    podg_rezin: parseFloat(formData.value.podg_rezin) || 0,
-    sbor_ypl: parseFloat(formData.value.sbor_ypl) || 0,
-    yst_zaklep: parseFloat(formData.value.yst_zaklep) || 0,
-  };
-
-  let totalSum = 0;
-  if (formConfig.value && Array.isArray(formConfig.value.fields)) {
-    formConfig.value.fields.forEach(field => {
-      //Вариант 1: Суммировать вычисленное значение времени (value * count)
-      const timeValue = parseFloat(formData.value[field.name]);
-      if (!isNaN(timeValue)) {
-        totalSum += timeValue;
-      }
-    });
-  }
-
-  requestData.total_time = parseFloat(totalSum.toFixed(3));
-
-  return requestData;
-}
-
-// Функция для выбора формы
-async function selectForm(formId) {
-  try {
-    // Получаем данные формы с сервера
-    const FormResponse = await axios.get(`http://localhost:8080/api/orders/order/product/form?idForm=${formId}`);
-    formConfig.value = FormResponse.data;
-    console.log("Получение формы", FormResponse)
-
-    // Получаем данные о работниках с сервера
-    const workersResponse = await axios.get('http://localhost:8080/api/orders/order/product/workers');
-    workersList.value = workersResponse.data.Workers;
-    //console.log("WOOORK", workersList.value)
-
-    // Инициализация formData значениями по умолчанию
-    formData.value = {};
-    formConfig.value.fields.forEach((field) => {
-      if (field.value !== undefined) {
-        formData.value[field.name] = field.value; // Устанавливаем значение по умолчанию
-        formData.value['count_' + field.name] = field.count;
-        formData.value['time_' + field.name] = field.minutes;
-
-        // Инициализация выбранного сотрудника
-        formData.value['worker_' + field.name] = ''; // По умолчанию пусто
-      } else {
-        formData.value[field.name] = ''; // Пустое значение, если default отсутствует
-        formData.value['count_' + field.name] = ''; // Пустое значение, если default отсутствует
-        formData.value[field.minutes] = '';
-      }
-    });
-
-    //console.log("FORM", formData.value)
-
-    // Устанавливаем выбранную форму
-    selectedForm.value = formId;
-    //console.log(formConfig.value.fields)
-  } catch (error) {
-    console.error('Ошибка при получении конфигурации формы:', error);
-  }
-}
+// Все шаблоны
+const allTemplates = ref([]);
+const fullForm = ref(null);
+const loading = ref(false);
 
 
+onMounted(async () => {
+  const res = await fetch('http://localhost:8080/all_templates')
+  allTemplates.value = await res.json()
 
-const GROUP_HANDLERS = {
-  1: {
-    url: 'http://localhost:8080/api/orders/order/product/gl',
-    dataFn: createRequestDataGlyhari,
-    printType: 'glyhar',  // ← тип для печати
-  },
-  2: {
-    url: 'http://localhost:8080/api/orders/order/product/window',
-    dataFn: createRequestDataWindows,
-    printType: 'window',  // ← тип для печати
-  },
-  3: {
-    url: 'http://localhost:8080/api/orders/order/product/door',
-    dataFn: createRequestDataDoor,
-    printType: 'door',  // ← тип для печати
-  },
-  4: {
-    url: 'http://localhost:8080/api/orders/order/product/vitraj',
-    dataFn: createRequestDataVitraj,
-    printType: 'vitraj',  // ← тип для печати
-  },
-  5: {
-    url: 'http://localhost:8080/api/orders/order/product/loggia',
-    dataFn: createRequestDataLoggia,
-    printType: 'loggia',  // ← тип для печати
-  }
+  console.log("ALLLLLL", allTemplates);
+})
+
+// const getCategoryShort = (cat) => {
+//   const map = {
+//     window: 'ОК',
+//     glyhar: 'ГЛ',
+//     loggia: 'ЛД',
+//     vitragh: 'ВТ',
+//     door: 'ДВ'
+//   }
+//   return map[cat] || '??'
+// }
+
+// Красивые названия категорий
+const categoryLabels = {
+  window: 'Окна',
+  glyhar: 'Глухари',
+  loggia: 'Лоджии',
+  vitragh: 'Витражи',
+  door: 'Двери'
 };
 
+const groupedTemplates = computed(() => {
+  const groups = {};
 
-// Функция для отправки данных на сервер
-async function handleSubmit() {
+  // Инициализируем только нужные категории
+  ['window', 'glyhar', 'loggia', 'vitrage', 'door'].forEach(cat => {
+    groups[cat] = [];
+  });
 
-  const currentFormId = selectedForm.value;
-  const groupId = formGroupsMap.value[currentFormId];//const currentDate = new Date().toISOString();
-
-  //console.log(`Форма ${currentFormId} относится к группе ${groupId}`);
-
-  const handler = GROUP_HANDLERS[groupId];
-
-  if (!handler) {
-    console.error('Нет обработчика для группы:', groupId);
-    alert(`Неизвестная группа: ${groupId}`);
-    return;
-  }
-
-  //const requestData = createRequestDataGlyhari(formData);
-  try {
-    // const assignments = formConfig.value.fields.map(field => ({
-    //   order_num : route.query.order_num,
-    //   name_izd: route.query.name,
-    //   operation_name: field.name,
-    //   worker_id: parseInt(formData.value['worker_' + field.name]),
-    //   value: parseFloat(formData.value[field.name]),
-    //   count: formData.value['count_' + field.name],
-    //   assigned_at: new Date().toISOString() // Дата проставляется для всех операций
-    // })); // Убираем операции без назначенных сотрудников
-
-    // Формируем данные с помощью нужной функции
-    const finalRequestData = handler.dataFn(formData);
-
-    console.log("FIIIIIINAAAAAALL", finalRequestData);
-    // Отправляем
-    const responseForm = await axios.post(handler.url, finalRequestData);
-    console.log('Успешно отправлено:', responseForm.data);
-
-    const orderId = responseForm.data.id || responseForm.data.ID;
-    if (!orderId) {
-      console.error('Не получен ID после сохранения');
-      return;
+  allTemplates.value?.Template?.forEach(tpl => {
+    const cat = tpl.category?.toLowerCase().trim();
+    if (groups[cat] !== undefined) {
+      groups[cat].push(tpl);
     }
+  });
 
-    //const responseAssign = await axios.post('http://localhost:8080/api/orders/order/assignments', assignments)
+  // Удаляем пустые группы
+  Object.keys(groups).forEach(key => {
+    if (groups[key].length === 0) {
+      delete groups[key];
+    }
+  });
 
-// Редиректим на страницу печати по ID
-    router.push({
-      name: "FormPrintNorm",
-      params: {id: orderId},
-      query: {type: handler.printType, customer: route.query.customer}
-    });
-
-  } catch (error) {
-    console.error('Ошибка:', error.response ? error.response.data : error.message);
-  }
-}
-
-// Вычисляемое свойство для полей формы
-const formFields = computed(() => {
-  return formConfig.value?.fields || [];
+  return groups;
 });
 
+async function loadForm(templateCode) {
+  loading.value = true
+  try {
+    const res = await fetch(`http://localhost:8080/template?code=${templateCode}`)
+    if (!res.ok) throw new Error('Не удалось загрузить форму')
+    fullForm.value = await res.json()
+
+    console.log("REEEESSSS", fullForm.value);
+  } catch (err) {
+    console.error('Ошибка загрузки формы:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+//TODO КОНЕЦ НОВОЙ ЛОГИКИ
 </script>
 
-<style>
-.card-info {
-  margin-bottom: 20px;
-  padding: 10px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-}
-
-form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  max-width: 400px;
-}
-
-label {
-  font-weight: bold;
-}
-
-textarea {
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-}
-
-button {
-  padding: 10px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-}
-
-button:hover {
-  background-color: #0056b3;
-}
-
-/*TODO new*/
-.card-info1 {
-  font-family: Arial, sans-serif;
-  width: 100%; /* Родительский контейнер занимает всю ширину */
-  max-width: 100%; /* Ограничение максимальной ширины для удобства чтения */
-  margin: 0 auto; /* Центрирование контейнера по горизонтали */
-  padding: 20px; /* Внутренний отступ */
-  box-sizing: border-box; /* Учитываем padding в ширине */
-  /*display: block;*/
-}
-
-.form-main {
-  width: 100%;
-  height: 100%;
-  display: block;
-  flex-direction: row;
-  width: 100%; /* Форма занимает всю ширину родительского контейнера */
-}
-
-.form-form {
-  max-width: 100%;
-}
-
-.form-field-row {
-  display: flex; /* Используем flexbox для создания строки */
-  align-items: center; /* Выравниваем элементы по вертикали */
-  justify-content: space-between; /* Распределяем элементы равномерно */
-  margin-bottom: 10px; /* Отступ между строками */
-}
-
-.form-label {
-  flex: 1; /* Занимает 1 часть ширины */
-  text-align: right; /* Выравниваем текст по правому краю */
-  margin-right: 10px; /* Отступ справа */
-}
-
-.form-input {
-  flex: 2; /* Занимает 2 части ширины (центральный столбец) */
-  margin: 0 10px; /* Отступы слева и справа */
-  padding: 5px; /* Внутренний отступ для input */
-  max-width: 10%; /* Полная ширина внутри flex-контейнера */
-  box-sizing: border-box; /* Учитываем padding и border в ширине */
-}
-
-.form-count {
-  /*flex: 1; !* Занимает 2 части ширины (центральный столбец) *!*/
-  margin: 0 10px; /* Отступы слева и справа */
-  padding: 5px; /* Внутренний отступ для input */
-  max-width: 10%; /* Полная ширина внутри flex-контейнера */
-  /*box-sizing: border-box; !* Учитываем padding и border в ширине *!*/
-}
-
-.button_submit {
-  flex: 2;
-  max-width: 10%;
+<style scoped>
+.operations-grid {
+  display: grid;
+  grid-template-columns: 1fr 120px;
+  gap: 12px 16px;
+  margin: 20px 0;
   align-items: center;
 }
 
-/* Группировка форм */
-.form-selector-grouped {
+.operation-row {
+  display: contents; /* чтобы не ломать grid */
+}
+
+.op-label {
+  font-size: 14px;
+  color: #2c3e50;
+  padding: 8px 0;
+}
+
+.op-input-wrapper {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.input-minutes {
+  width: 100%;
+  max-width: 100px;
+  padding: 8px 10px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 14px;
+  text-align: right;
+}
+
+.input-minutes:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+/* Адаптивность */
+@media (max-width: 600px) {
+  .operations-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .op-input-wrapper {
+    justify-content: flex-start;
+    margin-top: -8px;
+  }
+}
+
+.form-container {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+  color: #2c3e50;
+  margin-bottom: 20px;
+  font-size: 24px;
+}
+
+.card-info {
+  background: #f8f9fa;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  margin-bottom: 24px;
+  font-size: 14px;
+}
+
+.card-info p {
+  margin: 8px 0;
+}
+
+.card-info img {
+  margin-top: 10px;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+}
+
+/* Группы форм */
+.forms-by-category h4 {
+  color: #495057;
+  margin-bottom: 16px;
+  font-size: 18px;
+}
+
+.category-group {
   margin-bottom: 20px;
 }
 
-.form-group {
-  margin-bottom: 20px;
-  padding: 10px;
-  border: 1px solid #e0e0e0;
-  border-radius: 5px;
+.category-title {
+  margin: 0 0 10px 0;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #007bff;
+  color: #007bff;
+  font-size: 16px;
+  display: inline-block;
 }
 
-.form-group h3 {
-  margin-top: 0;
-  margin-bottom: 10px;
-  color: #333;
-}
-
-.form-buttons {
+.templates-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.form-button {
-  padding: 8px 12px;
-  background-color: #f5f5f5;
-  color: #333;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+.template-item {
+  padding: 10px 16px;
+  background: #e9ecef;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
   cursor: pointer;
   font-size: 14px;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
-.form-button:hover {
-  background-color: #e0e0e0;
-  border-color: #ccc;
-}
-
-.form-button.active {
-  background-color: #007bff;
+.template-item:hover {
+  background: #007bff;
   color: white;
+  border-color: #0056b3;
+}
+
+/* Полная форма */
+.full-form {
+  margin-top: 30px;
+  padding: 20px;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+}
+
+.full-form h3 {
+  color: #2c3e50;
+  margin-top: 0;
+}
+
+.form-code {
+  color: #6c757d;
+  margin-bottom: 16px;
+}
+
+.field {
+  margin-bottom: 16px;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #495057;
+}
+
+.input-number {
+  width: 100%;
+  max-width: 200px;
+  padding: 8px 10px;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.input-number:focus {
+  outline: none;
   border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.btn-save {
+  padding: 10px 20px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.btn-save:hover:not(:disabled) {
+  background: #0056b3;
+}
+
+.btn-save:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.placeholder {
+  text-align: center;
+  padding: 40px;
+  color: #6c757d;
+  font-style: italic;
+  background: #f8f9fa;
+  border: 1px dashed #dee2e6;
+  border-radius: 8px;
+  margin-top: 20px;
+}
+
+.template-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+
+.template-item:hover {
+  background: #007bff;
+  color: white;
+  border-color: #0056b3;
+}
+
+.template-item:hover .template-category {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.template-name {
+  font-weight: 500;
+  flex: 1;
+}
+
+.template-category {
+  background: #e9ecef;
+  color: #495057;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 8px;
+  border-radius: 12px;
+  margin-left: 12px;
+  white-space: nowrap;
 }
 
 </style>
