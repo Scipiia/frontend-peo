@@ -42,39 +42,63 @@
     </div>
 
     <!-- Полная форма -->
-      <div v-if="fullForm" class="full-form">
+    <div v-if="fullForm" class="full-form">
+      <h3>{{ fullForm.name }}</h3>
 
-        <!-- Список операций -->
-        <div class="operations-grid">
-          <div
-              v-for="op in fullForm.operations"
-              :key="op.name"
-              class="operation-row"
-          >
-            <!-- Название операции -->
-            <label class="op-label">{{ op.label }}</label>
-
-            <!-- Инпут (в минутах для удобства) -->
-            <div class="op-input-wrapper">
-              <input
-                  :value="op.value"
-                  step="0.001"
-                  min="0"
-                  class="input-minutes"
-              />
-            </div>
-<!--            <p class="">{{ op.minutes }}</p>-->
-          </div>
-
-        <button @click="saveNormirovka" :disabled="loading" class="btn-save">
-          {{ loading ? 'Сохраняем...' : 'Сохранить нормировку' }}
-        </button>
+      <!-- После таблицы -->
+      <div v-if="fullForm" class="total-summary">
+        <strong>Итоговое время по изделию:</strong>
+        {{ totalHours }} ч ({{ totalMinutes }} мин)
       </div>
-    </div>
 
-    <!-- Заглушка -->
-    <div v-else-if="!loading && !fullForm" class="placeholder">
-      Выберите форму из списка, чтобы посмотреть детали
+      <table class="norm-table">
+        <thead>
+        <tr>
+          <th>Операция</th>
+          <th>Норма (ч)</th>
+          <th>Кол-во</th>
+          <th>Норма (мин)</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr v-for="op in fullForm.operations" :key="op.name">
+          <!-- 1. Название операции -->
+          <td>{{ op.label }}</td>
+
+          <!-- 2. Норма в часах (редактируемое) -->
+          <td>
+            <input
+                v-model.number="op.value"
+                type="number"
+                step="0.001"
+                min="0"
+                class="input-small"
+            />
+          </td>
+
+          <!-- 3. Количество (редактируемое) -->
+          <td>
+            <input
+                v-model.number="op.count"
+                type="number"
+                step="1"
+                min="0"
+                class="input-small"
+                @input="recalculateValue(op)"
+            />
+          </td>
+
+          <!-- 4. Норма в минутах (только для чтения) -->
+          <td class="text-center">
+            {{ op.minutes }}
+          </td>
+        </tr>
+        </tbody>
+      </table>
+
+      <button @click="saveNormirovka" :disabled="loading" class="btn-save">
+        {{ loading ? 'Сохраняем...' : 'Сохранить нормировку' }}
+      </button>
     </div>
   </div>
 </template>
@@ -108,17 +132,6 @@ onMounted(async () => {
   console.log("ALLLLLL", allTemplates);
 })
 
-// const getCategoryShort = (cat) => {
-//   const map = {
-//     window: 'ОК',
-//     glyhar: 'ГЛ',
-//     loggia: 'ЛД',
-//     vitragh: 'ВТ',
-//     door: 'ДВ'
-//   }
-//   return map[cat] || '??'
-// }
-
 // Красивые названия категорий
 const categoryLabels = {
   window: 'Окна',
@@ -127,6 +140,34 @@ const categoryLabels = {
   vitragh: 'Витражи',
   door: 'Двери'
 };
+
+// Итог: сумма всех (value * count)
+const totalHours = computed(() => {
+  // Защита: если нет формы или операций — возвращаем 0
+  if (!fullForm.value || !Array.isArray(fullForm.value.operations)) {
+    return '0.000';
+  }
+
+  // Суммируем только корректные числа
+  const total = fullForm.value.operations.reduce((sum, op) => {
+    const value = op.value;
+    // Проверяем, что value — число и не NaN
+    if (typeof value === 'number' && !isNaN(value) && isFinite(value)) {
+      return sum + value;
+    }
+    return sum; // если не число — игнорируем
+  }, 0);
+
+  // Убеждаемся, что total — число, и форматируем
+  return parseFloat(total).toFixed(3);
+});
+
+const totalMinutes = computed(() => {
+  const hours = parseFloat(totalHours.value);
+  if (isNaN(hours)) return 0;
+  return Math.round(hours * 60);
+});
+
 
 const groupedTemplates = computed(() => {
   const groups = {};
@@ -153,12 +194,33 @@ const groupedTemplates = computed(() => {
   return groups;
 });
 
+function recalculateValue(op) {
+  if (op.count === 0) {
+    op.value = 0;
+  } else {
+    op.value = parseFloat((op.original_value * op.count).toFixed(3));
+  }
+}
+
 async function loadForm(templateCode) {
   loading.value = true
   try {
     const res = await fetch(`http://localhost:8080/template?code=${templateCode}`)
     if (!res.ok) throw new Error('Не удалось загрузить форму')
     fullForm.value = await res.json()
+
+    fullForm.value.operations.forEach(op => {
+      // Установка count по умолчанию (если не задан)
+      if (op.count == null || op.count === undefined) {
+        op.count = 1;
+      }
+
+      // Сохраняем оригинальную норму на 1 штуку
+      op.original_value = op.value;
+
+      // Применяем логику пересчёта
+      recalculateValue(op);
+    });
 
     console.log("REEEESSSS", fullForm.value);
   } catch (err) {
@@ -168,61 +230,75 @@ async function loadForm(templateCode) {
   }
 }
 
+function saveNormirovka() {
+  // Защита: форма не загружена
+  if (!fullForm.value) {
+    console.warn("Форма не загружена");
+    return;
+  }
+
+  // Фильтруем операции: только те, где value > 0
+  const operationsToSend = fullForm.value.operations
+      .filter(op => {
+        // Пропускаем, если value == 0 или не число
+        const isValidValue = typeof op.value === 'number' && op.value > 0;
+        return isValidValue;
+      })
+      .map(op => ({
+        name: op.name,
+        label: op.label,
+        count: op.count || 1,
+        value: parseFloat(op.value.toFixed(6)),
+        minutes: op.minutes
+      }));
+
+  // Проверка: а вдруг всё отфильтровалось?
+  if (operationsToSend.length === 0) {
+    alert("❌ Все операции имеют значение 0 — ничего не сохранено.");
+    return;
+  }
+
+  // Итоговое время — сумма только отправляемых операций
+  const totalHours = operationsToSend.reduce((sum, op) => sum + op.value, 0);
+
+  // Финальный payload
+  const payload = {
+    order_num: cardInfo.value.order_num,
+    name: cardInfo.value.name,
+    template_code: fullForm.value.code,
+    count: parseInt(cardInfo.value.count),
+    total_time: parseFloat(totalHours.toFixed(3)),
+    operations: operationsToSend
+  };
+
+  console.log('📤 Отправляем (без нулей):', JSON.stringify(payload, null, 2));
+
+  // Отправка на бэкенд
+  fetch('http://localhost:8080/api/orders/order-norm/form', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  })
+      .then(res => {
+        if (res.ok) {
+          alert('✅ Нормировка сохранена');
+        } else {
+          res.text().then(text => {
+            console.error('Ошибка:', text);
+            alert('❌ Ошибка сохранения: ' + text);
+          });
+        }
+      })
+      .catch(err => {
+        console.error('Network error:', err);
+        alert('⚠️ Не удалось отправить данные');
+      });
+}
+
 //TODO КОНЕЦ НОВОЙ ЛОГИКИ
 </script>
 
 <style scoped>
-.operations-grid {
-  display: grid;
-  grid-template-columns: 1fr 120px;
-  gap: 12px 16px;
-  margin: 20px 0;
-  align-items: center;
-}
-
-.operation-row {
-  display: contents; /* чтобы не ломать grid */
-}
-
-.op-label {
-  font-size: 14px;
-  color: #2c3e50;
-  padding: 8px 0;
-}
-
-.op-input-wrapper {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.input-minutes {
-  width: 100%;
-  max-width: 100px;
-  padding: 8px 10px;
-  border: 1px solid #ced4da;
-  border-radius: 6px;
-  font-size: 14px;
-  text-align: right;
-}
-
-.input-minutes:focus {
-  outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-}
-
-/* Адаптивность */
-@media (max-width: 600px) {
-  .operations-grid {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .op-input-wrapper {
-    justify-content: flex-start;
-    margin-top: -8px;
-  }
-}
 
 .form-container {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -259,7 +335,7 @@ h2 {
   border-radius: 4px;
 }
 
-/* Группы форм */
+/* === Список форм по категориям === */
 .forms-by-category h4 {
   color: #495057;
   margin-bottom: 16px;
@@ -286,99 +362,6 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.template-item {
-  padding: 10px 16px;
-  background: #e9ecef;
-  border: 1px solid #dee2e6;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.template-item:hover {
-  background: #007bff;
-  color: white;
-  border-color: #0056b3;
-}
-
-/* Полная форма */
-.full-form {
-  margin-top: 30px;
-  padding: 20px;
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-}
-
-.full-form h3 {
-  color: #2c3e50;
-  margin-top: 0;
-}
-
-.form-code {
-  color: #6c757d;
-  margin-bottom: 16px;
-}
-
-.field {
-  margin-bottom: 16px;
-}
-
-.field label {
-  display: block;
-  margin-bottom: 6px;
-  font-weight: 500;
-  color: #495057;
-}
-
-.input-number {
-  width: 100%;
-  max-width: 200px;
-  padding: 8px 10px;
-  border: 1px solid #ced4da;
-  border-radius: 6px;
-  font-size: 14px;
-}
-
-.input-number:focus {
-  outline: none;
-  border-color: #007bff;
-  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
-}
-
-.btn-save {
-  padding: 10px 20px;
-  background: #007bff;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.btn-save:hover:not(:disabled) {
-  background: #0056b3;
-}
-
-.btn-save:disabled {
-  background: #6c757d;
-  cursor: not-allowed;
-}
-
-.placeholder {
-  text-align: center;
-  padding: 40px;
-  color: #6c757d;
-  font-style: italic;
-  background: #f8f9fa;
-  border: 1px dashed #dee2e6;
-  border-radius: 8px;
-  margin-top: 20px;
 }
 
 .template-item {
@@ -409,15 +392,22 @@ h2 {
   flex: 1;
 }
 
-.template-category {
-  background: #e9ecef;
-  color: #495057;
-  font-size: 12px;
-  font-weight: 500;
-  padding: 4px 8px;
-  border-radius: 12px;
-  margin-left: 12px;
-  white-space: nowrap;
+/* === Форма операций === */
+.full-form {
+  margin-top: 30px;
+  padding: 20px;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+}
+
+.full-form td {
+  padding-top: 15px;
+}
+
+.full-form h3 {
+  color: #2c3e50;
+  margin-top: 0;
 }
 
 </style>

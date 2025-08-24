@@ -12,12 +12,12 @@ import EditNormOrder from "@/components/EditNormOrder.vue";
 const routes = [
     //{path : "/api/fff", component: HelloWorld},
     {path : "/api/message", component:  MessageForm},
-    {path : "/api/orders/order/:id", name: "OrdersDetails" , component:  OrdersDetails, props: true},
-    {path: "/api/orders/order/form/:id", name: "FormPagePeo", component: FormPagePeo},
-    {path: "/api/orders/order/print/:id", name: "FormPrintNorm", component: PrintNormOrder},
+    {path : "/api/orders/order-norm/:id", name: "OrdersDetails" , component:  OrdersDetails, props: true},
+    {path: "/api/orders/order-norm/form/:id", name: "FormPagePeo", component: FormPagePeo},
+    {path: "/api/orders/order-norm/print/:id", name: "FormPrintNorm", component: PrintNormOrder},
     {path: "/api/orders", component: OrdersList},
     {path: "/api/norm/orders", name: "NormOrdersList", component: NormOrdersList},
-    {path: "/api/norm/orders/order/edit/:id", name: "EditNormOrder", component: EditNormOrder},
+    {path: "/api/norm/orders/order-norm/edit/:id", name: "EditNormOrder", component: EditNormOrder},
 ];
 
 const router = createRouter({
