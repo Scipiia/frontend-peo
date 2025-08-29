@@ -1,288 +1,265 @@
-<!-- NormOrdersList.vue -->
+<!-- OrdersList.vue -->
 <template>
-  <div class="norm-orders">
-    <h2>Нормированные наряды</h2>
+  <div class="orders-page">
+    <h2>Нормированные заказы</h2>
 
+    <!-- Фильтры -->
     <div class="filters">
       <div class="filter-group">
-        <label>С даты</label>
-        <input v-model="filters.from" type="date" @change="applyFilters" />
-      </div>
-
-      <div class="filter-group">
-        <label>По дату</label>
-        <input v-model="filters.to" type="date" @change="applyFilters" />
-      </div>
-
-      <div class="filter-group">
         <label>Номер заказа</label>
-        <input v-model="filters.orderNum" placeholder="ORD-100" @input="debouncedApplyFilters" />
+        <input
+            v-model="filters.order_num"
+            type="text"
+            placeholder="Q6-317"
+            @input="applyFilters"
+        />
       </div>
 
       <div class="filter-group">
         <label>Тип изделия</label>
         <select v-model="filters.type" @change="applyFilters">
-          <option v-for="opt in typeOptions" :key="opt.value" :value="opt.value">
-            {{ opt.text }}
-          </option>
+          <option value="">Все типы</option>
+          <option value="window">Окна</option>
+          <option value="glyhar">Глухари</option>
+          <option value="door">Двери</option>
+          <option value="loggia">Лоджии</option>
+          <option value="vitrage">Витражи</option>
         </select>
       </div>
-
-      <div class="filter-group">
-        <label>Профиль</label>
-        <input v-model="filters.profil" placeholder="ALU, PVC..." @input="debouncedApplyFilters" />
-      </div>
-
-      <div class="filter-group">
-        <label>Название</label>
-        <input v-model="filters.name" placeholder="Поиск..." @input="debouncedApplyFilters" />
-      </div>
-
-      <button @click="resetFilters" class="btn-reset">Сбросить</button>
-      <button @click="exportToExcel" class="btn btn-export">
-        📥 Выгрузить в Excel
-      </button>
-
     </div>
 
-    <!-- Состояние загрузки -->
-    <div v-if="loading" class="loading">
-      Загрузка данных...
-    </div>
-
-    <!-- Ошибка -->
-    <div v-else-if="error" class="error">
-      Ошибка: {{ error }}
-    </div>
-
-    <!-- Таблица с данными -->
-    <table v-else class="orders-table">
+    <!-- Таблица -->
+    <table class="orders-table" v-if="orders.length > 0">
       <thead>
       <tr>
-        <th>Тип</th>
-        <th>ID</th>
-        <th>Номер заказа</th>
-        <th>Название</th>
+        <th>Заказ</th>
+        <th>Изделие</th>
         <th>Кол-во</th>
-        <th>Профиль</th>
-        <th>норма(часы)</th>
-        <th>норма(минуты)</th>
-        <th>Дата загрузки</th>
-        <th>Дата Обновления</th>
+        <th>Тип</th>
+        <th>Время (ч)</th>
+        <th>Дата</th>
+        <th>Действие</th>
       </tr>
       </thead>
       <tbody>
-      <tr v-for="order in orders"
-          :key="order.result_id"
-          @click="viewOrderDetails(order.result_id, order.type)"
-      >
-        <td>{{ getTypeLabel(order.type) }}</td>
-        <td>{{ order.result_id }}</td>
+      <tr v-for="order in orders" :key="order.order_num + '-' + order.name">
         <td>{{ order.order_num }}</td>
         <td>{{ order.name }}</td>
-        <td>{{ order.count }}</td>
-        <td>{{ order.profil }}</td>
-        <td>{{ order.total_time.toFixed(3) }}</td>
-        <td>{{ (order.total_time * 60).toFixed(3) }}</td>
-        <td>{{ formData(order.created_at) }}</td>
-        <td>{{ formData(order.updated_at) }}</td>
+        <td class="text-center">{{ order.count }}</td>
+        <td>
+          <span :class="`type-badge type-${order.type}`">{{ getTypeLabel(order.type) }}</span>
+        </td>
+        <td class="text-right">{{ order.total_time.toFixed(2) }}</td>
+        <td>{{ new Date(order.created_at).toLocaleString() }}</td>
+        <td>
+          <button @click="goToNormirovka(order)" class="btn-view">
+            Просмотр
+          </button>
+        </td>
       </tr>
       </tbody>
     </table>
 
-    <!-- Нет данных -->
-    <div v-if="!loading && !error && orders.length === 0" class="empty">
-      Нет данных
+    <!-- Пусто -->
+    <div v-else-if="!loading" class="no-results">
+      {{ filters.order_num || filters.type ? 'Нет заказов по фильтру' : 'Нет нормированных заказов' }}
     </div>
+
+    <div v-else class="loading">Загрузка...</div>
   </div>
 </template>
 
-<script>
+<script setup>
+import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 
+const router = useRouter();
 
-export default {
-  name: 'NormOrdersList',
-  data() {
-    return {
-      orders: [],
-      loading: false,
-      error: '',
+// Фильтры
+const filters = ref({
+  order_num: '',
+  type: ''
+});
 
-      // 🔽 НОВОЕ: фильтры
-      filters: {
-        from: '',        // дата "с" (в формате YYYY-MM-DD)
-        to: '',          // дата "по"
-        orderNum: '',    // номер заказа
-        type: '',        // 'loggia', 'vitraj', 'door', 'window', 'glyhar'
-        profil: '',      // профиль
-        name: '',        // поиск по названию
-      },
+// Список заказов
+const orders = ref([]);
+const loading = ref(false);
 
-      // Для выпадающего списка типов
-      typeOptions: [
-        { value: '', text: 'Все типы' },
-        { value: 'loggia', text: 'Лоджия' },
-        { value: 'vitraj', text: 'Витраж' },
-        { value: 'door', text: 'Дверь' },
-        { value: 'window', text: 'Окно' },
-        { value: 'glyhar', text: 'Глухарь' }
-      ]
-    };
-  },
-  async mounted() {
-    await this.fetchOrders();
-  },
-  methods: {
-    async fetchOrders() {
-      this.loading = true;
-      this.error = '';
+// Отображаемые названия типов
+const typeLabels = {
+  window: 'Окно',
+  glyhar: 'Глухарь',
+  door: 'Дверь',
+  loggia: 'Лоджия',
+  vitrage: 'Витраж',
+  other: 'Другое'
+};
 
-      const params = new URLSearchParams();
+const getTypeLabel = (type) => {
+  return typeLabels[type] || type;
+};
 
-      if (this.filters.from) params.append('from', this.filters.from);
-      if (this.filters.to) params.append('to', this.filters.to);
-      if (this.filters.orderNum) params.append('order_num', this.filters.orderNum);
-      if (this.filters.type) params.append('type', this.filters.type);
-      if (this.filters.profil) params.append('profil', this.filters.profil);
-      if (this.filters.name) params.append('name', this.filters.name);
+// Применяем фильтры и запрашиваем данные
+const applyFilters = () => {
+  fetchOrders();
+};
 
-      try {
-        const response = await fetch(`http://localhost:8080/api/norm/orders?${params}`); // Убедись, что путь правильный
-        const data = await response.json();
+// Загрузка заказов
+const fetchOrders = async () => {
+  loading.value = true;
 
-        console.log("RESPONSE", response);
-        if (data.error) {
-          this.error = data.error;
-        } else {
-          this.orders = data.orders || [];
-        }
-      } catch (err) {
-        this.error = 'Не удалось подключиться к серверу';
-        console.error('Fetch error:', err);
-      } finally {
-        this.loading = false;
-      }
-    },
-    resetFilters() {
-      this.filters = {
-        from: '',
-        to: '',
-        orderNum: '',
-        type: '',
-        profil: '',
-        name: ''
-      };
-      this.applyFilters();
-    },
+  // Формируем URL с параметрами
+  const params = new URLSearchParams();
+  if (filters.value.order_num) params.append('order_num', filters.value.order_num);
+  if (filters.value.type) params.append('type', filters.value.type);
 
-    // Удобочитаемое название типа изделия
-    getTypeLabel(type) {
-      const labels = {
-        loggia: 'Лоджия',
-        vitraj: 'Витраж',
-        door: 'Дверь',
-        window: 'Окно',
-        glyhar: 'Глухарь',
-      };
-      return labels[type] || type.charAt(0).toUpperCase() + type.slice(1);
-    },
-    formData(dateString) {
-      const options = { day: 'numeric', month: 'numeric', year: 'numeric' };
-      const date = new Date(dateString);
-      return date.toLocaleDateString('ru-RU', options); // → "8.8.2025"
-    },
-    async applyFilters() {
-      this.currentPage = 1; // Сброс на первую страницу
-      await this.fetchOrders();
-    },
-    // Опционально: debounce для полей ввода (чтобы не спамить запросами)
-    debouncedApplyFilters() {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = setTimeout(() => {
-        this.applyFilters();
-      }, 500);
-    },
-    viewOrderDetails(orderId, type) {
-      // const router = useRouter();
-      // router.push({ name: 'EditNormOrder', params: { id: orderId }, query: {type: type} });
-      this.$router.push({
-        name: 'EditNormOrder',
-        params: {id: orderId},
-        query: {type: type}
-      });
-    },
-    exportToExcel() {
-      const params = new URLSearchParams();
-
-      // Добавляем только непустые фильтры
-      Object.keys(this.filters).forEach(key => {
-        if (this.filters[key]) {
-          params.append(key, this.filters[key]);
-        }
-      });
-
-      // Открываем ссылку на экспорт
-      const url = `http://localhost:8080/api/norm/orders/excel?${params}`;
-      window.open(url, '_blank');
+  try {
+    const res = await fetch(`http://localhost:8080/api/orders/order/norm/all?${params}`);
+    if (!res.ok) {
+      console.error('Ошибка HTTP:', res.status);
+      orders.value = []; // ← не null!
+      return;
     }
+
+    const data = await res.json();
+
+    console.log(data)
+
+    // 🔹 Убедись, что data — массив. Если null → []
+    orders.value = Array.isArray(data) ? data : [];
+
+  } catch (err) {
+    console.error('Ошибка сети:', err);
+    // 🛑 Никогда не делай: orders.value = null
+    orders.value = []; // ✅ всегда массив
+  } finally {
+    loading.value = false;
   }
 };
 
+// Переход к нормировке
+const goToNormirovka = (order) => {
+  router.push(`/api/norm/orders/order-norm/edit/${order.id}`); // если id есть, или используй другой идентификатор
+};
 
+// Загружаем при открытии
+onMounted(() => {
+  // Можно заполнить фильтры из URL
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.has('order_num')) filters.value.order_num = urlParams.get('order_num');
+  if (urlParams.has('type')) filters.value.type = urlParams.get('type');
 
+  fetchOrders();
+});
 </script>
 
 <style scoped>
-.norm-orders {
+.orders-page {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  max-width: 1200px;
+  margin: 0 auto;
   padding: 20px;
-  font-family: Arial, sans-serif;
 }
 
 h2 {
-  color: #333;
+  color: #2c3e50;
   margin-bottom: 20px;
 }
 
-.loading,
-.error,
-.empty {
-  padding: 20px;
-  text-align: center;
-  font-style: italic;
-  color: #666;
+/* Фильтры */
+.filters {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
 }
 
-.error {
-  color: #d32f2f;
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
 }
 
+.filter-group label {
+  font-size: 14px;
+  color: #555;
+  margin-bottom: 6px;
+}
+
+.filter-group input,
+.filter-group select {
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+/* Таблица */
 .orders-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: white;
 }
 
 .orders-table th,
 .orders-table td {
-  border: 1px solid #ddd;
-  padding: 10px;
+  padding: 12px 10px;
   text-align: left;
+  border-bottom: 1px solid #eee;
 }
 
 .orders-table th {
-  background-color: #f5f5f5;
-  font-weight: bold;
+  background: #f8f9fa;
+  color: #495057;
+  font-weight: 600;
+  font-size: 14px;
 }
 
-.orders-table tr {
-  background-color: #f0f8ff;
+.text-center {
+  text-align: center;
 }
 
-/*.orders-table tr:nth-child(even) {*/
-/*  background-color: #fafafa;*/
-/*}*/
+.text-right {
+  text-align: right;
+}
 
-/*.orders-table tr:hover {*/
-/*  background-color: #f0f8ff;*/
-/*}*/
+/* Бейдж типа */
+.type-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: white;
+}
+
+.type-badge.type-window { background: #007bff; }
+.type-badge.type-glyhar { background: #28a745; }
+.type-badge.type-door   { background: #dc3545; }
+.type-badge.type-loggia { background: #fd7e14; }
+.type-badge.type-vitrage{ background: #6f42c1; }
+
+/* Кнопка */
+.btn-view {
+  padding: 6px 12px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn-view:hover {
+  background: #0056b3;
+}
+
+/* Пусто / Загрузка */
+.no-results,
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #6c757d;
+  font-style: italic;
+}
 </style>

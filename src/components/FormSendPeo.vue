@@ -35,7 +35,7 @@
               class="template-item"
           >
             <span class="template-name">{{ tpl.name }}</span>
-<!--            <span class="template-category">{{ getCategoryShort(tpl.category) }}</span>-->
+            <!--            <span class="template-category">{{ getCategoryShort(tpl.category) }}</span>-->
           </li>
         </ul>
       </div>
@@ -209,6 +209,8 @@ async function loadForm(templateCode) {
     if (!res.ok) throw new Error('Не удалось загрузить форму')
     fullForm.value = await res.json()
 
+    fullForm.value.type = fullForm.value.category; // например, 'window'
+
     fullForm.value.operations.forEach(op => {
       // Установка count по умолчанию (если не задан)
       if (op.count == null || op.count === undefined) {
@@ -245,18 +247,12 @@ function saveNormirovka() {
         return isValidValue;
       })
       .map(op => ({
-        name: op.name,
-        label: op.label,
-        count: op.count || 1,
+        operation_name: op.name,
+        operation_label: op.label,
+        count: parseFloat(op.count),
         value: parseFloat(op.value.toFixed(6)),
         minutes: op.minutes
       }));
-
-  // Проверка: а вдруг всё отфильтровалось?
-  if (operationsToSend.length === 0) {
-    alert("❌ Все операции имеют значение 0 — ничего не сохранено.");
-    return;
-  }
 
   // Итоговое время — сумма только отправляемых операций
   const totalHours = operationsToSend.reduce((sum, op) => sum + op.value, 0);
@@ -266,7 +262,8 @@ function saveNormirovka() {
     order_num: cardInfo.value.order_num,
     name: cardInfo.value.name,
     template_code: fullForm.value.code,
-    count: parseInt(cardInfo.value.count),
+    count: parseFloat(cardInfo.value.count),
+    type: fullForm.value.type,
     total_time: parseFloat(totalHours.toFixed(3)),
     operations: operationsToSend
   };
@@ -279,19 +276,19 @@ function saveNormirovka() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   })
-      .then(res => {
-        if (res.ok) {
-          alert('✅ Нормировка сохранена');
+      .then(res => res.json())
+      .then(data => {
+        console.log(data)
+        if (data.order_id) {
+          // ✅ Успешно сохранено → редирект на страницу печати
+          window.location.href = `/api/norm/order-norm/print/${data.order_id}`;
         } else {
-          res.text().then(text => {
-            console.error('Ошибка:', text);
-            alert('❌ Ошибка сохранения: ' + text);
-          });
+          alert("Ошибка: не получен ID нормировки");
         }
       })
       .catch(err => {
-        console.error('Network error:', err);
-        alert('⚠️ Не удалось отправить данные');
+        console.error('Ошибка сохранения:', err);
+        alert('Не удалось сохранить нормировку');
       });
 }
 
@@ -408,6 +405,21 @@ h2 {
 .full-form h3 {
   color: #2c3e50;
   margin-top: 0;
+}
+
+.btn-save {
+  margin-top: 20px;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+.btn-save:hover {
+  background-color: #0056b3;
 }
 
 </style>

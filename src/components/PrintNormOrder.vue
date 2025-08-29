@@ -1,151 +1,279 @@
+<!-- NormirovkaPrint.vue -->
 <template>
-  <div class="print-container">
-    <p><strong>Номер заказа:</strong> {{ printData?.order_num }}</p>
-    <p><strong>Изделие:</strong> {{ printData?.name }}</p>
-    <p><strong>Количество:</strong> {{ printData?.count }}</p>
-    <p><strong>Профиль:</strong> {{ printData?.profil }}</p>
-    <p><strong>Заказчик:</strong> {{ queryCustomer?.customer }}</p>
+  <div class="norm-print-page" v-if="norm">
+    <h1>Нормировочный лист</h1>
 
-    <table border="1" style="width: 100%; margin: 0 0; border-collapse: collapse;">
+    <!-- Информация о заказе -->
+    <div class="info-grid">
+      <div><strong>Заказ:</strong></div>
+      <div>{{ norm.order_num }}</div>
+
+      <div><strong>Изделие:</strong></div>
+      <div>{{ norm.name }}</div>
+
+      <div><strong>Количество:</strong></div>
+      <div>{{ norm.count }} шт.</div>
+
+      <div><strong>Время нормирования:</strong></div>
+      <div>{{ new Date(norm.created_at).toLocaleString() }}</div>
+
+      <div><strong>Итого по изделию:</strong></div>
+      <div class="total-time">
+        {{ totalHours }} ч ({{ totalMinutes }} мин)
+      </div>
+    </div>
+
+    <!-- Таблица операций с колонкой "ФИО исполнителя" -->
+    <h2>Операции</h2>
+    <table class="operations-table">
       <thead>
-      <tr style="background: #eee;">
-        <th style="width: 50%">Наименование работ</th>
-        <th style="width: 10%">Норма (ч)</th>
-        <th style="width: 10%">Норма (мин)</th>
-        <th style="width: 30%">ФИО исполнителя</th>
+      <tr>
+        <th>Операция</th>
+        <th>Кол-во</th>
+        <th>Время (ч)</th>
+        <th>Время (мин)</th>
+        <th>ФИО исполнителя</th>
       </tr>
       </thead>
       <tbody>
-      <tr v-for="op in filteredOperations" :key="op.id">
-        <td>{{ op.name }}</td>
-        <td>{{ op.value.toFixed(3) }}</td>
-        <td>{{ (op.value * 60).toFixed(3) }}</td>
-        <td></td>
+      <!-- Основные операции -->
+      <tr v-for="op in norm.operations" :key="op.operation_name">
+        <td>{{ op.operation_label }}</td>
+        <td class="text-center">{{ op.count }}</td>
+        <td class="text-right">{{ op.value.toFixed(3) }}</td>
+        <td class="text-right">{{ op.minutes }}</td>
+        <td class="executor"></td>
+      </tr>
+      <tr>
+        <td colspan="2"><strong>Итого</strong></td>
+        <td class="text-right">
+          <strong>{{ totalHours }}</strong>
+        </td>
+        <td class="text-right">
+          <strong>{{ totalMinutes }}</strong>
+        </td>
       </tr>
 
-      </tbody>
-    </table>
-    <table border="1" style="width: 70%; border-collapse: collapse; margin-bottom: 20px;">
-      <tr v-if="totalTime > 0" style="font-weight: bold; background-color: #f0f0f0;">
-        <td style="width: 50%">Общее время</td>
-        <td style="width: 10%">{{ totalTime.toFixed(3) }}</td>
-        <td style="width: 10%">{{ (totalTime * 60).toFixed(3) }}</td>
-      </tr>
-    </table>
-    <!-- Новая таблица: Дополнительные работы -->
-    <table border="1" style="width: 100%; border-collapse: collapse;">
-      <thead>
-      <tr style="background: #eee;">
-        <th style="width: 50%">Доп работы</th>
-      </tr>
-      </thead>
-      <tbody>
-      <!-- Три пустые строки для "доп работ" -->
-      <tr v-for="n in 3" :key="n">
-        <td style="width: 50%">&nbsp;</td>
-        <td style="width: 10%">&nbsp;</td>
-        <td style="width: 10%">&nbsp;</td>
-        <td>&nbsp;</td>
+      <!-- Пустые строки для доп. работ -->
+      <tr v-for="n in 3" :key="'extra-' + n">
+        <td class="executor">Доп. работа</td>
+        <td class="extra-op"></td>
+        <td class="text-center extra-field"></td>
+        <td class="text-right extra-field"></td>
+        <td class="text-right extra-field"></td>
       </tr>
       </tbody>
     </table>
 
-    <button @click="print">Печать</button>
+    <!-- Кнопка печати -->
+    <div class="print-actions">
+      <button @click="printNormirovka" class="btn-print">
+        🖨️ Распечатать
+      </button>
+    </div>
+  </div>
+
+  <div v-else-if="loading" class="loading">
+    Загрузка нормировки...
+  </div>
+
+  <div v-else class="error">
+    Нормировка не найдена
   </div>
 </template>
 
-    <!-- Print.vue -->
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import axios from 'axios'
-import {computed} from "vue";
+import { ref, onMounted, computed } from 'vue';
+import { useRoute } from 'vue-router';
 
-const route = useRoute()
-const printData = ref(null)
+const route = useRoute();
+const norm = ref(null);
+const loading = ref(true);
 
-const queryCustomer = ref({
-  customer: route.query.customer || '',
+// Загрузка нормировки
+onMounted(async () => {
+  const id = route.params.id;
+  try {
+    const res = await fetch(`http://localhost:8080/api/orders/order/norm/${id}`);
+    if (!res.ok) throw new Error('Not found');
+    norm.value = await res.json();
+  } catch (err) {
+    console.error('Ошибка загрузки нормировки:', err);
+  } finally {
+    loading.value = false;
+  }
 });
 
-// Функция печати — доступна в шаблоне
-const print = () => {
-  window.print()
+// Итоговое время
+const totalHours = computed(() => {
+  const sum = norm.value?.operations?.reduce((acc, op) => acc + op.value, 0) || 0;
+  return sum.toFixed(3);
+});
+
+const totalMinutes = computed(() => {
+  return Math.round(parseFloat(totalHours.value) * 60);
+});
+
+// Печать
+function printNormirovka() {
+  window.print();
 }
-
-// Загрузка данных
-const fetchData = async () => {
-  //const id = route.query.id
-  const id = route.params.id;
-  const type = route.query.type;
-  console.log("PPPPPPPPPPPPPPPPPPPPPPPPPSASAS", route.params.id);
-  if (!id) {
-    alert('Не указан ID')
-    return
-  }
-
-  try {
-    const res = await axios.get(`http://localhost:8080/api/orders/order/print/${id}?type=${type}`)
-    // Предполагаем, что бэкенд возвращает объект с полем OrderNormData
-    printData.value = res.data // ✅ если структура: { OrderNormData: { ... } }
-    //console.log("RRRRRRRRRRRRRR", printData.value)
-  } catch (err) {
-    console.error('Ошибка загрузки:', err)
-    //alert('Не удалось загрузить данные')
-  }
-}
-
-const filteredOperations = computed(() => {
-  return printData.value?.operations?.filter(op => op.id !== 'total_time') || []
-})
-
-// Вычисляем общее время, если total_time не приходит от бэкенда
-const totalTime = computed(() => {
-  const totalOp = printData.value?.operations?.find(op => op.id === 'total_time')
-  //console.log("TOOOOOOOOTAAAAAAAL", totalOp);
-  return totalOp ? totalOp.value : 0
-})
-
-// Вызываем при монтировании
-onMounted(fetchData)
 </script>
 
 <style scoped>
-.print-container {
-  padding: 20px;
-  font-family: Arial, sans-serif;
+.norm-print-page {
+  font-family: 'Segoe UI', Arial, sans-serif;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  background: #fff;
+  box-sizing: border-box;
 }
 
-button {
-  padding: 10px 20px;
+h1 {
+  text-align: center;
+  color: #2c3e50;
+  margin-bottom: 20px;
+  font-size: 28px;
+}
+
+h2 {
+  color: #2c3e50;
+  margin: 30px 0 15px;
+  font-size: 20px;
+}
+
+/* Сетка информации */
+.info-grid {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 8px 12px;
+  margin-bottom: 24px;
   font-size: 16px;
-  background-color: #007bff;
+}
+
+.info-grid div {
+  margin: 4px 0;
+}
+
+.total-time {
+  font-weight: bold;
+  color: #d35400;
+}
+
+/* Таблица операций */
+.operations-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 20px 0;
+  font-size: 14px;
+}
+
+.operations-table th,
+.operations-table td {
+  border: 1px solid #ccc;
+  padding: 10px;
+  text-align: left;
+}
+
+.operations-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #495057;
+}
+
+/* Колонка "ФИО исполнителя" */
+.executor {
+  width: 200px;
+  min-width: 200px;
+  background: #f8f9fa;
+  font-style: italic;
+  color: #6c757d;
+  text-align: center;
+}
+
+/* Доп. работы */
+
+
+.extra-op {
+  font-style: italic;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+  font-family: monospace;
+}
+
+/* Итог */
+.operations-table tfoot td {
+  font-weight: bold;
+  background: #f8f9fa;
+}
+
+/* Кнопка печати */
+.print-actions {
+  margin-top: 40px;
+  text-align: center;
+}
+
+.btn-print {
+  padding: 12px 24px;
+  background: #007bff;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
+  font-size: 16px;
+  font-weight: 500;
 }
 
-button:hover {
-  background-color: #0056b3;
+.btn-print:hover {
+  background: #0056b3;
 }
 
+/* Стили для печати */
 @media print {
-  button {
+  body {
+    padding: 10px;
+  }
+
+  .print-actions {
     display: none;
   }
-  body {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+
+  .norm-print-page {
+    padding: 10px;
+    font-size: 12px;
   }
-  .print-container {
-    padding: 1cm;
-    font-size: 12pt;
+
+  h1 {
+    font-size: 24px;
   }
-  .no-print {
-    display: none !important;
+
+  h2 {
+    font-size: 18px;
+  }
+
+  .info-grid {
+    font-size: 14px;
+  }
+
+  .operations-table {
+    font-size: 12px;
+  }
+
+  .executor,
+  .extra-op,
+  .extra-field {
+    background: white !important;
+    color: black !important;
   }
 }
+
 </style>
 
 
