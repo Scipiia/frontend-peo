@@ -1,320 +1,197 @@
 <!-- EditNormOrder.vue -->
 <template>
-  <div class="edit-norm-page" v-if="norm">
-    <h2>Редактирование нормировки</h2>
+  <div class="edit-norm-page" v-if="!loading && assembly">
+    <h2>Редактирование сборки</h2>
+    <p><strong>Заказ:</strong> {{ assembly[0]?.order_num }}</p>
 
-    <!-- Информация о заказе -->
-    <div class="info-grid">
-      <div><strong>Заказ:</strong></div>
-      <div>{{ norm.order_num }}</div>
+    <!-- Список всех нарядов в сборке -->
+    <div v-for="item in assembly" :key="item.id" class="assembly-item">
+      <h3>{{ getItemTitle(item) }}</h3>
+      <div class="item-info">
+        <span><strong>ID:</strong> {{ item.id }}</span>
+        <span><strong>Тип:</strong> {{ getTypeLabel(item.type) }}</span>
+        <span><strong>Кол-во:</strong> {{ item.count }}</span>
+        <span><strong>Создан:</strong> {{ formatDate(item.created_at) }}</span>
+      </div>
 
-      <div><strong>Изделие:</strong></div>
-      <div>{{ norm.name }}</div>
+      <!-- Таблица операций -->
+      <table class="operations-table">
+        <thead>
+        <tr>
+          <th>Операция</th>
+          <th>Кол-во</th>
+          <th>Время (ч)</th>
+          <th>Время (мин)</th>
+        </tr>
+        </thead>
+        <tbody>
+        <!-- Основные операции -->
+        <tr v-for="op in item.operations" :key="op.operation_name">
+          <td>{{ op.operation_label }}</td>
+          <td>
+            <input
+                v-model.number="op.count"
+                type="number"
+                min="0"
+                step="1"
+                class="input-small"
+            />
+          </td>
+          <td>
+            <input
+                v-model.number="op.value"
+                type="number"
+                step="0.001"
+                min="0"
+                class="input-small"
+                @input="syncMinutes(op)"
+            />
+          </td>
+          <td>
+            <input
+                v-model.number="op.minutes"
+                type="number"
+                min="0"
+                class="input-small"
+                @input="syncValue(op)"
+            />
+          </td>
+        </tr>
 
-      <div><strong>Количество:</strong></div>
-      <div>{{ norm.count }}</div>
-
-      <div><strong>Тип:</strong></div>
-      <div>{{ getTypeLabel(norm.type) }}</div>
-
-      <div><strong>Время создания:</strong></div>
-      <div>{{ new Date(norm.created_at).toLocaleString() }}</div>
-
-      <div><strong>Общее время:</strong></div>
-      <div class="total-time">{{ totalHours }} ч</div>
+        <!-- Доп. операции -->
+        <tr v-for="extra in item.extraOperations" :key="extra.operation_name">
+          <td>
+            <input
+                v-model="extra.operation_label"
+                type="text"
+                placeholder="Название доп. операции"
+                class="input-full"
+            />
+          </td>
+          <td>
+            <input
+                v-model.number="extra.count"
+                type="number"
+                min="0"
+                step="1"
+                class="input-small"
+            />
+          </td>
+          <td>
+            <input
+                v-model.number="extra.value"
+                type="number"
+                step="0.001"
+                min="0"
+                class="input-small"
+                @input="syncExtraMinutes(extra)"
+            />
+          </td>
+          <td>
+            <input
+                v-model.number="extra.minutes"
+                type="number"
+                min="0"
+                class="input-small"
+            />
+          </td>
+        </tr>
+        </tbody>
+      </table>
     </div>
-
-    <!-- Таблица операций -->
-    <h3>Операции</h3>
-    <table class="operations-table">
-      <thead>
-      <tr>
-        <th>Операция</th>
-        <th>Кол-во</th>
-        <th>Время (ч)</th>
-        <th>Время (мин)</th>
-      </tr>
-      </thead>
-      <tbody>
-      <!-- Основные операции -->
-      <tr v-for="op in operations" :key="op.operation_name">
-        <td>{{ op.operation_label }}</td>
-        <td>
-          <input
-              v-model.number="op.count"
-              type="number"
-              min="1"
-              step="1"
-              class="input-small"
-              @blur = "handleBlur(op)"
-          />
-        </td>
-        <td>
-          <input
-              v-model.number="op.value"
-              type="number"
-              step="0.001"
-              min="0"
-              class="input-small"
-              @input="syncMinutes(op)"
-              @blur = "handleBlur(op)"
-          />
-        </td>
-        <td class="text-right">
-          <input
-              v-model.number="op.minutes"
-              type="number"
-              step="0.001"
-              min="0"
-              class="input-small"
-              @blur = "handleBlur(op)"
-          />
-        </td>
-      </tr>
-
-      <!-- Доп. операции -->
-      <tr v-for="(extra) in extraOperations" :key="extra.operation_name">
-        <td>
-          <input
-              v-model="extra.operation_label"
-              type="text"
-              placeholder="Название доп. операции"
-              class="input-full"
-          />
-        </td>
-        <td>
-          <input
-              v-model.number="extra.count"
-              type="number"
-              min="1"
-              step="1"
-              class="input-small"
-              @input="recalculateTotal"
-              @blur = "handleBlurExtra(extra)"
-          />
-        </td>
-        <td>
-          <input
-              v-model.number="extra.value"
-              type="number"
-              step="0.001"
-              min="0"
-              class="input-small"
-              @input="syncExtraMinutes(extra)"
-              @blur = "handleBlurExtra(extra)"
-          />
-        </td>
-        <td>
-          <input
-              v-model.number="extra.minutes"
-              type="number"
-              min="0"
-              class="input-small"
-              @blur = "handleBlurExtra(extra)"
-          />
-        </td>
-      </tr>
-      </tbody>
-      <tfoot>
-      <tr>
-        <td colspan="2"><strong>Итого</strong></td>
-        <td class="text-right">
-          <strong>{{ totalHours }}</strong>
-        </td>
-        <td class="text-right">
-          <strong>{{ totalMinutes }}</strong>
-        </td>
-      </tr>
-      </tfoot>
-    </table>
 
     <!-- Кнопки -->
     <div class="actions">
       <button @click="goBack" class="btn-cancel">Назад</button>
-      <button @click="saveChanges" :disabled="loading" class="btn-save">
-        {{ loading ? 'Сохраняем...' : 'Сохранить' }}
+      <button @click="saveAll" :disabled="loading" class="btn-save">
+        {{ loading ? 'Сохраняем...' : '✅ Сохранить всё' }}
       </button>
     </div>
   </div>
 
-  <div v-else-if="loading" class="loading">Загрузка...</div>
-  <div v-else class="error">Нормировка не найдена</div>
+  <div v-else-if="loading" class="loading">Загрузка сборки...</div>
+  <div v-else class="error">Не удалось загрузить данные</div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 const route = useRoute();
 const router = useRouter();
 
-const norm = ref(null);
-const operations = ref([]);
-const extraOperations = ref([
-  { operation_name: 'dop_rabota_1' ,operation_label: '', count: 0, value: 0, minutes: 0 },
-  { operation_name: 'dop_rabota_2', operation_label: '', count: 0, value: 0, minutes: 0 },
-  { operation_name: 'dop_rabota_3', operation_label: '', count: 0, value: 0, minutes: 0 }
-]);
+// Состояние
+const assembly = ref([]);     // Все наряды сборки
 const loading = ref(false);
 
-// Загрузка данных
+// --- Загрузка данных ---
 onMounted(async () => {
   const id = route.params.id;
+  if (!id) {
+    alert("Не указан ID наряда");
+    return router.push('/api/norm/orders/');
+  }
+
+  loading.value = true;
+
   try {
-    const res = await fetch(`http://localhost:8080/api/orders/order/norm/${id}`);
-    if (!res.ok) throw new Error('Not found');
-    const data = await res.json();
+    // 1. Получаем текущий наряд, чтобы найти rootId
+    const itemRes = await fetch(`http://localhost:8080/api/orders/order-norm/${id}`);
+    if (!itemRes.ok) throw new Error('Наряд не найден');
+    const currentItem = await itemRes.json();
 
-    console.log(data)
-    norm.value = {
-      id: id,
-      order_num: data.order_num,
-      name: data.name,
-      count: data.count,
-      type: data.type,
-      created_at: data.created_at
-    };
+    // 2. Определяем rootId
+    let rootId;
+    if (currentItem.part_type === 'main') {
+      rootId = id;
+    } else if (currentItem.parent_product_id) {
+      rootId = currentItem.parent_product_id;
+    } else {
+      rootId = id; // fallback
+    }
 
-    operations.value = data.operations.map(op => ({
-      operation_name: op.operation_name,
-      operation_label: op.operation_label,
-      count: op.count,
-      value: op.value,
-      minutes: op.minutes
+    console.log("CURRRR" ,currentItem)
+
+    // 3. Загружаем всю сборку
+    const assemblyRes = await fetch(`http://localhost:8080/api/orders/order-norm/${rootId}`);
+    if (!assemblyRes.ok) throw new Error('Не удалось загрузить сборку');
+    const allItems = await assemblyRes.json();
+
+    // 4. Подготовка данных для редактирования
+    assembly.value = allItems.map(item => ({
+      id: item.id,
+      order_num: item.order_num,
+      name: item.name,
+      count: item.count,
+      type: item.type,
+      part_type: item.part_type,
+      parent_product_id: item.parent_product_id,
+      created_at: item.created_at,
+      operations: item.operations.map(op => ({ ...op })), // копия
+      extraOperations: [
+        { operation_name: 'dop_rabota_1', operation_label: '', count: 0, value: 0, minutes: 0 },
+        { operation_name: 'dop_rabota_2', operation_label: '', count: 0, value: 0, minutes: 0 },
+        { operation_name: 'dop_rabota_3', operation_label: '', count: 0, value: 0, minutes: 0 }
+      ]
     }));
   } catch (err) {
     console.error('Ошибка загрузки:', err);
+    alert('Не удалось загрузить данные. Проверьте соединение.');
+    router.push('/api/norm/orders/');
+  } finally {
+    loading.value = false;
   }
 });
 
-// Синхронизация: value ↔ minutes (для основных операций)
-const syncMinutes = (op) => {
-  if (op.value !== undefined) {
-    op.minutes = Math.round(op.value * 60);
-  }
+// --- Вспомогательные функции ---
+
+// Заголовок наряда
+const getItemTitle = (item) => {
+  if (item.part_type === 'main') return `🔧 Основное изделие: ${item.name}`;
+  return `🔩 Составная часть: ${item.name}`;
 };
 
-//Синхронизация: minutes → value (для доп. операций)
-// const syncExtraValue = (extra) => {
-//   if (extra.minutes !== undefined) {
-//     extra.value = parseFloat((extra.minutes / 60).toFixed(6));
-//   }
-// };
-
-// Синхронизация: value → minutes (для доп. операций)
-const syncExtraMinutes = (extra) => {
-  if (extra.value !== undefined) {
-    extra.minutes = Math.round(extra.value * 60);
-  }
-};
-
-const handleBlur = (op) => {
-  if (op.count === '' || isNaN(op.count)) {
-    op.count = 0;
-  }
-
-  if (op.value === '' || isNaN(op.value)) {
-    op.value = 0;
-  }
-
-  if (op.minutes === '' || isNaN(op.minutes)) {
-    op.minutes = 0;
-  }
-};
-
-const handleBlurExtra = (extra) => {
-  if (extra.count === '' || isNaN(extra.count)) {
-    extra.count = 0;
-  }
-
-  if (extra.value === '' || isNaN(extra.value)) {
-    extra.value = 0;
-  }
-
-  if (extra.minutes === '' || isNaN(extra.minutes)) {
-    extra.minutes = 0;
-  }
-};
-
-// Пересчёт итога
-const totalHours = computed(() => {
-  const mainSum = operations.value.reduce((acc, op) => acc + op.value, 0)
-  const extraSum = extraOperations.value
-      .filter(ex => ex.operation_label.trim() !== '')
-      .reduce((acc, ex) => acc + ex.value, 0);
-  if (typeof mainSum === "number" && typeof extraSum === "number") {
-    return parseFloat((mainSum + extraSum).toFixed(3));
-  } else {
-    console.warn('mainSum или extraSum не число:', mainSum, extraSum);
-    const safeMain = Number(mainSum) || 0;
-    const safeExtra = Number(extraSum) || 0;
-    return (safeMain + safeExtra).toFixed(2);
-  }
-});
-
-const totalMinutes = computed(() => {
-  return Math.round(totalHours.value * 60);
-});
-
-// Сохранение
-const saveChanges = async () => {
-  const validExtraOps = extraOperations.value.filter(
-      ex => ex.operation_label.trim() !== '' && (ex.value > 0 || ex.minutes > 0)
-  );
-
-  const payload = {
-    order_num: norm.value.order_num,
-    product_name: norm.value.name,
-    type: norm.value.type,
-    total_time: totalHours.value,
-    operations: [
-      // Основные операции
-      ...operations.value.map(op => ({
-        operation_name: op.operation_name,
-        operation_label: op.operation_label,
-        count: op.count || 0,
-        value: op.value || 0,
-        minutes: op.minutes || 0
-      })),
-      // Доп. операции
-      ...validExtraOps.map(ex => ({
-        //operation_name: slugify(ex.operation_label), // например, "dop_rabota_1"
-        operation_name: ex.operation_name, // например, "dop_rabota_1"
-        operation_label: ex.operation_label,
-        count: ex.count,
-        value: ex.value,
-        minutes: ex.minutes
-      }))
-    ]
-  };
-
-  console.log("PPPPPPAAAU", payload);
-
-  try {
-    const res = await fetch(`http://localhost:8080/api/orders/order/norm/update/${norm.value.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    if (res.ok) {
-      alert('✅ Сохранено');
-      router.push('/orders');
-    } else {
-      alert('❌ Ошибка сохранения');
-    }
-  } catch (err) {
-    console.error('Ошибка:', err);
-    alert('Не удалось сохранить');
-  }
-};
-
-// Возврат
-const goBack = () => {
-  router.back();
-};
-
-// Отображение типа
+// Тип → читаемое название
 const getTypeLabel = (type) => {
   const labels = {
     window: 'Окно',
@@ -325,49 +202,178 @@ const getTypeLabel = (type) => {
   };
   return labels[type] || type;
 };
+
+// Формат даты
+const formatDate = (dateStr) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  return date.toLocaleDateString('ru-RU');
+};
+
+// Синхронизация: value → minutes
+const syncMinutes = (op) => {
+  if (op.value !== undefined) {
+    op.minutes = Math.round(op.value * 60);
+  }
+};
+
+// Синхронизация: minutes → value
+const syncValue = (op) => {
+  if (op.minutes !== undefined) {
+    op.value = parseFloat((op.minutes / 60).toFixed(6));
+  }
+};
+
+// Синхронизация: extra.value → extra.minutes
+const syncExtraMinutes = (extra) => {
+  if (extra.value !== undefined) {
+    extra.minutes = Math.round(extra.value * 60);
+  }
+};
+
+// --- Сохранение всех нарядов ---
+const saveAll = async () => {
+  if (loading.value) return;
+  loading.value = true;
+
+  const savePromises = assembly.value.map(async (item) => {
+    // Фильтруем доп. операции
+    const validExtra = item.extraOperations.filter(
+        ex => ex.operation_label.trim() !== ''
+    );
+
+    // Считаем итоговое время
+    const total = [
+      ...item.operations,
+      ...validExtra
+    ].reduce((sum, op) => sum + op.value, 0);
+
+    const payload = {
+      order_num: item.order_num,
+      product_name: item.name,
+      type: item.type,
+      total_time: parseFloat(total.toFixed(3)),
+      operations: [
+        ...item.operations.map(op => ({
+          operation_name: op.operation_name,
+          operation_label: op.operation_label,
+          count: op.count || 0,
+          value: op.value || 0,
+          minutes: op.minutes || 0
+        })),
+        ...validExtra.map(ex => ({
+          operation_name: ex.operation_name,
+          operation_label: ex.operation_label,
+          count: ex.count || 0,
+          value: ex.value || 0,
+          minutes: ex.minutes || 0
+        }))
+      ]
+    };
+
+    try {
+      const res = await fetch(`http://localhost:8080/api/orders/order/norm/update/${item.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      console.log("PAAAAAAAAAAAAY", payload);
+
+      return res.ok ? { success: true, id: item.id } : { success: false, id: item.id };
+    } catch (err) {
+      console.error(`Ошибка при сохранении наряда ${item.id}:`, err);
+      return { success: false, id: item.id };
+    }
+  });
+
+  const results = await Promise.all(savePromises);
+  const successCount = results.filter(r => r.success).length;
+
+  // Результат
+  if (successCount === results.length) {
+    alert('✅ Все наряды успешно сохранены');
+    router.push('/api/norm/orders/');
+  } else if (successCount > 0) {
+    alert(`⚠️ Сохранено ${successCount} из ${results.length} нарядов. Проверьте данные.`);
+  } else {
+    alert('❌ Не удалось сохранить ни один наряд');
+  }
+
+  loading.value = false;
+};
+
+// --- Возврат ---
+const goBack = () => {
+  if (confirm('Вернуться без сохранения?')) {
+    router.push('/api/norm/orders/');
+  }
+};
 </script>
 
 <style scoped>
 .edit-norm-page {
-  max-width: 900px;
+  max-width: 1000px;
   margin: 20px auto;
   padding: 20px;
-  font-family: Arial, sans-serif;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 }
 
-.info-grid {
-  display: grid;
-  grid-template-columns: 180px 1fr;
-  gap: 8px 12px;
-  margin-bottom: 24px;
+h2 {
+  color: #2c3e50;
+  margin-bottom: 16px;
 }
 
-.total-time {
-  font-weight: bold;
+.item-info {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #555;
+}
+
+.assembly-item {
+  margin-bottom: 32px;
+  padding: 16px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #f9f9f9;
+}
+
+.assembly-item h3 {
+  margin: 0 0 12px 0;
+  color: #1a73e8;
 }
 
 .operations-table {
   width: 100%;
   border-collapse: collapse;
-  margin: 20px 0;
+  margin: 12px 0;
+  font-size: 14px;
 }
 
 .operations-table th,
 .operations-table td {
   border: 1px solid #ccc;
-  padding: 10px;
+  padding: 8px;
   text-align: left;
 }
 
 .operations-table th {
-  background: #f8f9fa;
+  background-color: #f2f2f2;
+  font-weight: 600;
 }
 
 .input-small {
-  max-width: 100px;
+  width: 80px;
   padding: 6px;
   border: 1px solid #ccc;
   border-radius: 4px;
+  text-align: center;
 }
 
 .input-full {
@@ -375,10 +381,6 @@ const getTypeLabel = (type) => {
   padding: 6px;
   border: 1px solid #ccc;
   border-radius: 4px;
-}
-
-.text-right {
-  text-align: right;
 }
 
 .actions {
@@ -403,9 +405,18 @@ const getTypeLabel = (type) => {
   border: none;
   border-radius: 6px;
   cursor: pointer;
+  font-weight: bold;
 }
 
 .btn-save:disabled {
-  background: #6c757d;
+  background: #aaa;
+  cursor: not-allowed;
+}
+
+.loading, .error {
+  text-align: center;
+  font-size: 18px;
+  padding: 40px;
+  color: #555;
 }
 </style>

@@ -13,7 +13,7 @@
     </form>
 
     <div v-if="responseMessage" class="response">
-      <h3>Response from Server:</h3>
+      <h3>ResponseOrder from Server:</h3>
       <p>{{ responseMessage }}</p>
       <p>{{ id }}</p>
     </div>

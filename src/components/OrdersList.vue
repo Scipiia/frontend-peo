@@ -110,6 +110,7 @@ async function fetchOrders() {
     orders.value = [];
     errorMessage.value = '';
 
+    //TODO Добавить поиск по номеру заказа
     const response = await axios.get('http://localhost:8080/api/orders', {
       params: {
         year: year.value,

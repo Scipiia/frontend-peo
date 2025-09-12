@@ -29,6 +29,7 @@
                 <p><strong>Название:</strong> {{ price.name_position }}</p>
                 <p><strong>Количество:</strong> {{ price.count }}</p>
                 <p><strong>Цвет:</strong> {{ price.plan_color }}</p>
+                <p><strong>Площадь:</strong> {{ price.sqr }}</p>
               </div>
             </div>
           </div>
@@ -62,12 +63,12 @@ const order = ref(null);
 
 
 const orderId = route.params.id; // Получаем ID заказа из параметров маршрута
-console.log('Order ID from route:', orderId);
+//console.log('Order ID from route:', orderId);
 
 
 async function fetchOrderDetails() {
   try {
-    const orderId = route.params.id; // Получаем ID заказа из параметров маршрута
+    //const orderId = route.params.id; // Получаем ID заказа из параметров маршрута
     const response = await axios.get(`http://localhost:8080/api/orders/order/${orderId}`);
     order.value = response.data;
     console.log(order.value)
@@ -107,7 +108,9 @@ function goToForm(price) {
       count: price.count,
       color: price.plan_color,
       customer: order.value.customer,
+      sqr: price.sqr,
       image: price.image,
+      position: price.position,
     },
   });
 }
@@ -128,7 +131,7 @@ function goToForm(price) {
   display: flex; /* Изображение и текст в строку */
   align-items: center; /*!* Выравнивание по центру *!*/
   /*flex-direction: initial;*/
-  gap: 20px; /* Расстояние между изображением и текстом */
+  gap: 30px; /* Расстояние между изображением и текстом */
 }
 
 .plan-details {
@@ -136,4 +139,11 @@ function goToForm(price) {
   flex-direction: column; /* Текстовые элементы в столбик */
   align-items: start;
 }
+
+.plan-details p {
+  margin: 2px;
+  padding: 2px;
+  line-height: 1.3;
+}
+
 </style>

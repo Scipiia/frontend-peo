@@ -20,8 +20,8 @@ const routes = [
     {path: "/api/orders", component: OrdersList},
     {path: "/api/norm/orders", name: "NormOrdersList", component: NormOrdersList},
     {path: "/api/norm/orders/order-norm/edit/:id", name: "EditNormOrder", component: EditNormOrder},
-    //{path: "/api/norm/orders/norm-order/:id", name: "GetNormOrder", component: GetNormOrder},
-    {path: "/api/norm/workers", name: "AssignWorkers", component: AssignWorkers}
+    //{path: "/api/norm/orders/norm-order-dem/:id", name: "GetNormOrder", component: GetNormOrder},
+    {path: "/api/norm/workers/:id", name: "AssignWorkers", component: AssignWorkers}
 ];
 
 const router = createRouter({

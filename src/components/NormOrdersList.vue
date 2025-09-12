@@ -39,6 +39,7 @@
         <th>Время (ч)</th>
         <th>Дата</th>
         <th>Действие</th>
+        <th>Статус</th>
       </tr>
       </thead>
       <tbody>
@@ -49,11 +50,14 @@
         <td>
           <span :class="`type-badge type-${order.type}`">{{ getTypeLabel(order.type) }}</span>
         </td>
-        <td class="text-right">{{ order.total_time.toFixed(2) }}</td>
-        <td>{{ new Date(order.created_at).toLocaleString() }}</td>
+        <td class="text-right">{{ order.total_time.toFixed(3) }}</td>
+        <td>{{ new Date(order.created_at).toLocaleDateString() }}</td>
         <td>
           <button @click="goToNormirovka(order)" class="btn-view">
             Просмотр
+          </button>
+          <button @click="goToWorkers(order)" class="btn-view">
+            Назначить работника
           </button>
         </td>
       </tr>
@@ -123,7 +127,7 @@ const fetchOrders = async () => {
 
     const data = await res.json();
 
-    console.log(data)
+    console.log("DATTTTAA", data);
 
     // 🔹 Убедись, что data — массив. Если null → []
     orders.value = Array.isArray(data) ? data : [];
@@ -140,6 +144,10 @@ const fetchOrders = async () => {
 // Переход к нормировке
 const goToNormirovka = (order) => {
   router.push(`/api/norm/orders/order-norm/edit/${order.id}`); // если id есть, или используй другой идентификатор
+};
+
+const goToWorkers = (order) => {
+  router.push({ name: 'AssignWorkers', params: { id: order.id } });
 };
 
 // Загружаем при открытии
