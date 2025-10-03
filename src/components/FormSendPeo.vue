@@ -79,6 +79,9 @@
     <!-- Форма операций -->
     <div v-if="fullForm" class="full-form">
       <h3>{{ fullForm.name }}</h3>
+      <h3>{{ fullForm.systema }}</h3>
+      <h3>{{ fullForm.code }}</h3>
+      <h3>Pidorok</h3>
 
       <!-- Тип изделия -->
       <div class="part-type-badge">
@@ -167,8 +170,6 @@ const cardInfo = ref({
   sqr: route.query.sqr || 0,
   position: route.query.position
 });
-
-console.log("CARD", cardInfo);
 
 // --- Управление формой ---
 const allTemplates = ref([]);
@@ -266,7 +267,7 @@ function recalculateValue(op) {
   if (op.count === 0 || !op.original_value) {
     op.value = 0;
   } else {
-    op.value = parseFloat((op.original_value * op.count).toFixed(6));
+    op.value = parseFloat((op.original_value * op.count).toFixed(3));
   }
 }
 
@@ -282,6 +283,8 @@ async function loadForm(tpl) {
     fullForm.value.type = tpl.category;
     fullForm.value.code = tpl.code;
 
+    console.log("FOOOORM", fullForm.value);
+
     // Определяем part_type и parent_product_id
     if (isComposite.value && selectedParentId.value) {
       fullForm.value.part_type = 'sub';
@@ -293,7 +296,7 @@ async function loadForm(tpl) {
 
     // Инициализируем операции
     fullForm.value.operations.forEach(op => {
-      op.count = op.count || 1;
+      op.count = op.count || 0;
       op.original_value = op.value;
       recalculateValue(op);
     });
@@ -330,6 +333,7 @@ function saveNormirovka() {
 
   const total = operationsToSend.reduce((sum, op) => sum + op.value, 0);
 
+  console.log("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPP", fullForm.value);
   // 2. Формируем payload
   const payload = {
     order_num: cardInfo.value.order_num,
@@ -345,6 +349,10 @@ function saveNormirovka() {
     customer: cardInfo.value.customer,
     operations: operationsToSend,
     status: "in_production",
+    systema: fullForm.value.systema,
+    type_izd: fullForm.value.type_izd,
+    profile: fullForm.value.profile,
+    sqr: parseFloat(cardInfo.value.sqr),
   };
 
   console.log("PAYYY", payload);

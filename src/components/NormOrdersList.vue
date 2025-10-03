@@ -60,6 +60,8 @@
             Назначить работника
           </button>
         </td>
+<!--        <td>{{ order.status }}</td>-->
+        <td>{{ getTypeStatus(order.status) }}</td>
       </tr>
       </tbody>
     </table>
@@ -99,8 +101,17 @@ const typeLabels = {
   other: 'Другое'
 };
 
+const typeStatus = {
+  assigned: "Сотрудники назначены",
+  in_production: "В производстве"
+};
+
 const getTypeLabel = (type) => {
   return typeLabels[type] || type;
+};
+
+const getTypeStatus = (type) => {
+  return typeStatus[type] || type;
 };
 
 // Применяем фильтры и запрашиваем данные

@@ -6,6 +6,7 @@
 <!--      <router-link to="/app/send_form">OrderS</router-link> |-->
       <router-link to="/api/orders">Orders</router-link> |
       <router-link to="/api/norm/orders/">Norm Orders</router-link> |
+      <router-link to="/api/final/orders/">Final Orders</router-link>
 <!--      <router-link to="/api/norm/workers">Назначить работяг</router-link>-->
     </nav>
     <router-view></router-view>

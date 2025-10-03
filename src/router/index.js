@@ -9,6 +9,7 @@ import NormOrdersList from "@/components/NormOrdersList.vue";
 import EditNormOrder from "@/components/EditNormOrder.vue";
 //import GetNormOrder from "@/components/GetNormOrder.vue";
 import AssignWorkers from "@/components/AssignWorkers.vue";
+import FinalNormOrdersList from "@/components/FinalNormOrdersList.vue";
 
 
 const routes = [
@@ -21,7 +22,8 @@ const routes = [
     {path: "/api/norm/orders", name: "NormOrdersList", component: NormOrdersList},
     {path: "/api/norm/orders/order-norm/edit/:id", name: "EditNormOrder", component: EditNormOrder},
     //{path: "/api/norm/orders/norm-order-dem/:id", name: "GetNormOrder", component: GetNormOrder},
-    {path: "/api/norm/workers/:id", name: "AssignWorkers", component: AssignWorkers}
+    {path: "/api/norm/workers/:id", name: "AssignWorkers", component: AssignWorkers},
+    {path: "/api/final/orders", name: "FinalNormOrdersList", component: FinalNormOrdersList}
 ];
 
 const router = createRouter({
