@@ -18,10 +18,10 @@ function normalize(str) {
 
 function aggregate(items) {
   const total = items.reduce((acc, p) => {
-    acc.count += p.count;
-    acc.sqr += p.sqr;
-    acc.hours += p.total_time;
-    acc.money += p.total_time * RATE_PER_HOUR;
+    acc.count += parseFloat(p.count) || 0;
+    acc.sqr += parseFloat(p.sqr) || 0;
+    acc.hours += parseFloat(p.total_time) || 0;
+    acc.money += parseFloat(p.total_time) * RATE_PER_HOUR || 0;
     return acc;
   }, { count: 0, sqr: 0, hours: 0, money: 0 });
 

@@ -48,89 +48,17 @@
       </div>
     </div>
 
-    <!-- 2. Сводная статистика (новое) -->
-<!--    <div class="summary-stats">-->
-<!--      <h4>Итоги за период</h4>-->
-
-<!--      <table class="summary-table">-->
-<!--        <thead>-->
-<!--        <tr>-->
-<!--          <th>Наименование</th>-->
-<!--          <th>Профиль</th>-->
-<!--          <th>Кол-во</th>-->
-<!--          <th>Площадь, м²</th>-->
-<!--          <th>Н/час</th>-->
-<!--          <th>Н/руб</th>-->
-<!--        </tr>-->
-<!--        </thead>-->
-<!--        <tbody>-->
-<!--        &lt;!&ndash; Основные строки &ndash;&gt;-->
-<!--        <tr v-for="(group, idx) in summaryGroups" :key="idx">-->
-<!--          <td>{{ group.type_izd }}</td>-->
-<!--          <td>{{ group.profile }}</td>-->
-<!--          <td>{{ group.count }}</td>-->
-<!--          <td>{{ group.sqr.toFixed(1) }}</td>-->
-<!--          <td>{{ group.hours.toFixed(1) }}</td>-->
-<!--          <td>{{ group.money.toFixed(1) }}</td>-->
-<!--        </tr>-->
-
-<!--        &lt;!&ndash; Итоговая строка &ndash;&gt;-->
-<!--        <tr class="total-row">-->
-<!--          <td colspan="2"><strong>Всего:</strong></td>-->
-<!--          <td><strong>{{ totalProducts }}</strong></td>-->
-<!--          <td><strong>{{ totalSqr.toFixed(1) }}</strong></td>-->
-<!--          <td><strong>{{ totalHours.toFixed(1) }}</strong></td>-->
-<!--          <td><strong>{{ totalMoney.toFixed(1) }}</strong></td>-->
-<!--        </tr>-->
-<!--        </tbody>-->
-<!--      </table>-->
-<!--    </div>-->
-
-
-<!--    <div class="summary-stats">-->
-<!--      <h4>Всего за месяц</h4>-->
-
-<!--      <table class="summary-table">-->
-<!--        <thead>-->
-<!--        <tr>-->
-<!--          <th>Наименование</th>-->
-<!--          <th>Профиль</th>-->
-<!--          <th>Кол-во</th>-->
-<!--          <th>Площадь, м²</th>-->
-<!--          <th>Н/час</th>-->
-<!--          <th>Н/руб</th>-->
-<!--        </tr>-->
-<!--        </thead>-->
-<!--        <tbody>-->
-<!--        &lt;!&ndash; Основные строки &ndash;&gt;-->
-<!--        <tr v-for="(group, idx) in customSummaryGroup" :key="idx">-->
-<!--          <td>{{ group.type_izd }}</td>-->
-<!--          <td>{{ group.profile }}</td>-->
-<!--          <td>{{ group.count }}</td>-->
-<!--          <td>{{ group.sqr.toFixed(1) }}</td>-->
-<!--          <td>{{ group.hours.toFixed(1) }}</td>-->
-<!--          <td>{{ group.money.toFixed(1) }}</td>-->
-<!--        </tr>-->
-
-<!--        &lt;!&ndash; Итоговая строка &ndash;&gt;-->
-<!--        <tr class="total-row">-->
-<!--          <td colspan="2"><strong>Всего:</strong></td>-->
-<!--          <td><strong>{{ totalProducts }}</strong></td>-->
-<!--          <td><strong>{{ totalSqr.toFixed(1) }}</strong></td>-->
-<!--          <td><strong>{{ totalHours.toFixed(1) }}</strong></td>-->
-<!--          <td><strong>{{ totalMoney.toFixed(1) }}</strong></td>-->
-<!--        </tr>-->
-<!--        </tbody>-->
-<!--      </table>-->
-<!--    </div>-->
-
     <!-- После фильтров -->
     <SummaryReport :products="filteredProductsWithRowNumber" />
 
     <!-- 4. Модальное окно (если нужно редактировать) -->
-    <div v-if="editingProduct" class="modal">
-      <!-- форма редактирования -->
-    </div>
+    <EditProductModal
+        v-if="editingProduct"
+        :product="editingProduct"
+        :employees="employees"
+        @close="saveAndClose"
+        @cancel="editingProduct = null"
+    />
 
     <!-- Таблица -->
     <div class="table-container">
@@ -138,6 +66,7 @@
         <thead>
         <tr>
           <th>Статус</th>
+          <th>Позиция</th>
           <th>№</th>
           <th>Спецификация</th>
           <th>№ заказа</th>
@@ -158,12 +87,24 @@
         </tr>
         </thead>
         <tbody>
-        <tr v-for="prod in filteredProductsWithRowNumber" :key="prod.id">
+        <tr v-for="prod in filteredProductsWithRowNumber"
+            :key="prod.id"
+            @click="() => openEditModal(prod)"
+            class="clickable-row"
+        >
           <td>{{ statusType(prod.status) }}</td>
+          <td>{{ prod.position }}</td>
           <td>{{ prod.rowNumber }}</td>
           <td>{{ prod.parent_assembly }}</td>
           <td>{{ prod.order_num }}</td>
-          <td>{{ prod.customer_type }}</td>
+          <td
+              :class="{
+                'profile-empty': prod.customer_type === 'не определено',
+                'cell-warning': prod.customer_type === 'не определено'
+            }"
+          >
+            {{ prod.customer_type }}
+          </td>
           <td>{{ prod.customer }}</td>
           <td>{{ formatType(prod.type) }}</td>
           <td
@@ -193,8 +134,15 @@
           <td>{{ prod.count }}</td>
           <td>{{ prod.sqr }}</td>
           <td>{{ prod.total_time }}</td>
-          <td>бригада</td>
-          <td>н/р</td>
+          <td
+              :class="{
+                'profile-empty': prod.brigade === 'не определено',
+                'cell-warning': prod.brigade === 'не определено'
+            }"
+          >
+            {{ prod.brigade }}
+          </td>
+          <td>{{ prod.norm_money }}</td>
           <td v-for="emp in employees" :key="emp.id" class="employee-col">
             {{ getMinutes(prod, emp.id) }}
           </td>
@@ -222,179 +170,44 @@ const year = ref(currentYear); // можно добавить выбор год�
 const month = ref(new Date().getMonth() + 1); // текущий месяц: 1–12
 const orderNum = ref('');
 
+//TODO модальное окно
+const editingProduct = ref(null);
+const openEditModal = (product) => {
+  // Создаём копию, чтобы не изменять оригинальный объект до сохранения
+  editingProduct.value = { ...product };
+};
+
+const saveAndClose = async (updatedProduct) => {
+  try {
+    // PUT /api/product/:id
+    console.log("RESULR", updatedProduct);
+    const cleanedProduct = {
+      ...updatedProduct,
+      sqr: parseFloat(updatedProduct.sqr) || 0,
+      norm_money: parseFloat(updatedProduct.norm_money) || 0,
+      total_time: parseFloat(updatedProduct.total_time) || 0,
+      count: parseInt(updatedProduct.count) || 0,
+    };
+
+    await axios.put(`http://localhost:8080/api/final/update/${updatedProduct.id}`, cleanedProduct);
+
+    // Обновляем данные в списке
+    const index = products.value.findIndex(p => p.id === updatedProduct.id);
+    if (index !== -1) {
+      products.value[index] = updatedProduct;
+    }
+
+    editingProduct.value = null;
+    loadData(); // или просто обнови computed
+  } catch (error) {
+    console.error('Ошибка сохранения', error);
+  }
+};
+import EditProductModal from "@/components/EditProductModal.vue";
+//TODO end
+
 //TODO доп компонент
-// import SummaryStats from './SummaryStats.vue';
-// import DetailTable from './DetailTable.vue';
-// const editingProduct = ref(null);
-//
-// const openEditModal = (product) => {
-//   editingProduct.value = { ...product };
-// };
-//
-// const saveAndClose = async (updatedData) => {
-//   // PUT /api/product/:id
-//   await axios.patch(`/api/product/${updatedData.id}`, updatedData);
-//   // Обновить products.value
-//   loadData();
-//   editingProduct.value = null;
-// };
-
 import SummaryReport from '@/components/SummaryStats.vue';
-
-// const summaryGroups = computed(() => {
-//   const groups = {};
-//
-//   filteredProductsWithRowNumber.value.forEach(p => {
-//     // Ключ для группировки
-//     const key = `${p.type_izd || 'Без наименования'} ${p.profile || 'Без профиля'}`;
-//
-//     if (!groups[key]) {
-//       groups[key] = {
-//         type_izd: p.type_izd || 'Без наименования',
-//         profile: p.profile || 'Без профиля',
-//         count: 0,
-//         sqr: 0,
-//         hours: 0,
-//         money: 0 // можно рассчитать как hours * ставка
-//       };
-//     }
-//
-//     groups[key].count += p.count;
-//     groups[key].sqr += p.sqr;
-//     groups[key].hours += p.total_time;
-//     groups[key].money += 99999999999999;//p.total_time * 600;
-//   });
-//
-//   // Преобразуем в массив и сортируем по площади
-//   const regularGroups =Object.values(groups)
-//       .sort((a, b) => b.sqr - a.sqr);
-//
-//
-//   // === 3. Сортируем: обычные по площади, кастомные — внизу (по желанию) ===
-//   // Если хочешь, чтобы "Холодные окна" была внизу — можно вынести её отдельно
-//   // Но пока просто сортируем всё вместе
-//   return regularGroups.sort((a, b) => b.sqr - a.sqr);
-//
-// });
-
-
-// const customSummaryGroup = computed(()=>{
-//     const group = {};
-//
-//   const regularGroups = Object.values(group);
-//
-//   const coldWindows = filteredProductsWithRowNumber.value.filter(p =>
-//       p.type === 'window' && p.systema === 'х'
-//   );
-//
-//   const hotWindows = filteredProductsWithRowNumber.value.filter(p =>
-//       p.type === 'window' && p.systema === 'т'
-//   );
-//
-//   const allWindow = filteredProductsWithRowNumber.value.filter(p =>
-//       p.type === "window"
-//   )
-//
-//   const vitrajDoor = filteredProductsWithRowNumber.value.filter(p => {
-//     const value = p.type_izd || ''; // на случай null/undefined
-//
-//     // Приводим к нижнему регистру и убираем лишние пробелы
-//     const normalized = value.trim().toLowerCase();
-//
-//     // Проверяем точное совпадение (рекомендуется)
-//     return normalized === 'витраж к двери';
-//   });
-//
-//
-//
-//   const coldStats = coldWindows.reduce((acc, p) => {
-//     acc.count += p.count;
-//     acc.sqr += p.sqr;
-//     acc.hours += p.total_time;
-//     acc.money += 9999999999;//p.total_time * 600;
-//     return acc;
-//   }, { count: 0, sqr: 0, hours: 0, money: 0 });
-//
-//   const hotStats = hotWindows.reduce((acc, p) => {
-//     acc.count += p.count;
-//     acc.sqr += p.sqr;
-//     acc.hours += p.total_time;
-//     acc.money += 99999999999;//p.total_time * 600;
-//     return acc;
-//   }, { count: 0, sqr: 0, hours: 0, money: 0 });
-//
-//   const allStatsWindow = allWindow.reduce((acc, p) =>{
-//     acc.count += p.count;
-//     acc.sqr += p.sqr;
-//     acc.hours += p.total_time;
-//     acc.money += 99999999999;//p.total_time * 600;
-//     return acc;
-//   }, {count: 0, sqr: 0, hours: 0, money: 0 });
-//
-//   const vitrDoor = vitrajDoor.reduce((acc, p) => {
-//     acc.count += p.count;
-//     acc.sqr += p.sqr;
-//     acc.hours += p.total_time;
-//     acc.money += 99999999999;//p.total_time * 600;
-//     return acc;
-//   }, { count: 0, sqr: 0, hours: 0, money: 0 });
-//
-//   // Добавляем "виртуальную" группу с особым именем
-//   regularGroups.push({
-//     type_izd: 'Холодные окна',   // будет в первом столбце
-//     profile: 'система: холодная', // пояснение
-//     count: coldStats.count,
-//     sqr: parseFloat(coldStats.sqr.toFixed(3)),
-//     hours: parseFloat(coldStats.hours.toFixed(3)),
-//     money: parseFloat(coldStats.money.toFixed(3))
-//   });
-//
-//   regularGroups.push({
-//     type_izd: 'Теплые окна',   // будет в первом столбце
-//     profile: 'система: теплая', // пояснение
-//     count: hotStats.count,
-//     sqr: parseFloat(hotStats.sqr.toFixed(3)),
-//     hours: parseFloat(hotStats.hours.toFixed(3)),
-//     money: parseFloat(hotStats.money.toFixed(3))
-//   });
-//
-//   regularGroups.push({
-//     type_izd: 'Все окна',   // будет в первом столбце
-//     profile: '', // пояснение
-//     count: allStatsWindow.count,
-//     sqr: parseFloat(allStatsWindow.sqr.toFixed(3)),
-//     hours: parseFloat(allStatsWindow.hours.toFixed(3)),
-//     money: parseFloat(allStatsWindow.money.toFixed(3))
-//   });
-//
-//   regularGroups.push({
-//     type_izd: 'Витраж к двери',   // будет в первом столбце
-//     profile: '', // пояснение
-//     count: vitrDoor.count,
-//     sqr: parseFloat(vitrDoor.sqr.toFixed(3)),
-//     hours: parseFloat(vitrDoor.hours.toFixed(3)),
-//     money: parseFloat(vitrDoor.money.toFixed(3))
-//   });
-//
-//   console.log("GGGGGROPOPOK", regularGroups);
-//
-//   return regularGroups;
-// });
-
-// const totalProducts = computed(() => filteredProductsWithRowNumber.value.length);
-//
-// const totalSqr = computed(() => {
-//   return filteredProductsWithRowNumber.value.reduce((sum, p) => sum + p.sqr, 0);
-// });
-//
-// const totalHours = computed(() => {
-//   return filteredProductsWithRowNumber.value.reduce((sum, p) => sum + p.total_time, 0);
-// });
-//
-// const totalMoney = computed(() => {
-//   return summaryGroups.value.reduce((sum, group) => sum + group.money, 0);
-// });
-
 
 //TODO конец доп компонента
 
@@ -500,7 +313,7 @@ const statusType = (status) => {
   const map = {
     'in_production': 'В производстве',
     'assigned': 'Назначены сотрудники',
-    'ready': 'Готов'
+    'final': 'Готов'
   };
   return map[status] || status;
 };
@@ -563,10 +376,10 @@ const exportToExcel = async () => {
       prod.type_izd || '',
       prod.profile || '',
       prod.count || '',
-      prod.sqr || '',
-      prod.total_time || '',
-      'бригада',
-      'н/р',
+      prod.sqr || 0,
+      prod.total_time || 0,
+      prod.brigade || 'не определено',
+      prod.norm_money || 0,
       '',
       ''
     ];
@@ -797,8 +610,8 @@ onMounted(() => {
   font-weight: 600;
 }
 
-td:nth-child(15),
-th:nth-child(15) {
+td:nth-child(16),
+th:nth-child(16) {
   background-color: #ebf8ff !important;
   font-weight: bold;
   color: #2c5282;
@@ -906,6 +719,15 @@ th:nth-child(15) {
 .cell-warning:hover {
   background-color: #fdd;
   transition: background-color 0.2s;
+}
+
+.clickable-row {
+  cursor: pointer;
+  transition: background-color 0.1s;
+}
+
+.clickable-row:hover {
+  background-color: #f0f8ff !important;
 }
 
 </style>
