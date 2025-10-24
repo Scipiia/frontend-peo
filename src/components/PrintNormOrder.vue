@@ -2,19 +2,18 @@
   <div class="print-layout" v-if="assembly">
     <!-- Общая шапка -->
     <div class="header">
-      <h1>Сборка: {{ assembly.main.name }}</h1>
+      <p>Пооперационный технологический процесс изготовления конструкции из профиля: {{ assembly.main.name }}</p>
       <p><strong>Номер заказа:</strong> {{ assembly.main.order_num }}</p>
-      <p><strong>Дата создания:</strong> {{ formatDate(assembly.main.created_at) }}</p>
-      <hr />
+<!--      <p><strong>Дата создания:</strong> {{ formatDate(assembly.main.created_at) }}</p>-->
     </div>
 
     <!-- Основное изделие -->
-    <h2>{{ assembly.main.name }}</h2>
+<!--    <h2>{{ assembly.main.name }}</h2>-->
     <p>
-      <strong>Тип:</strong> {{ getTypeLabel(assembly.main.type) }} |
-      <strong>ID:</strong> {{ assembly.main.id }}
+      <strong>Тип:</strong> {{ getTypeLabel(assembly.main.type) }}
+<!--      <strong>ID:</strong> {{ assembly.main.id }}-->
     </p>
-    <p><strong>Итого:</strong> {{ assembly.main.total_time.toFixed(3) }} ч</p>
+<!--    <p><strong>Итого:</strong> {{ assembly.main.total_time.toFixed(3) }} ч</p>-->
 
     <table class="operations-table">
         <thead>
@@ -48,12 +47,12 @@
         :key="sub.id"
         class="item-page sub-item"
     >
-      <h2>{{ sub.name }}</h2>
-      <p>
-        <strong>ID:</strong> {{ sub.id }} |
-        <strong>Привязано к:</strong> {{ sub.parent_product_id }}
-      </p>
-      <p><strong>Итого:</strong> {{ sub.total_time.toFixed(3) }} ч</p>
+<!--      <h2>{{ sub.name }}</h2>-->
+<!--      <p>-->
+<!--&lt;!&ndash;        <strong>ID:</strong> {{ sub.id }} |&ndash;&gt;-->
+<!--&lt;!&ndash;        <strong>Привязано к:</strong> {{ sub.parent_product_id }}&ndash;&gt;-->
+<!--      </p>-->
+<!--      <p><strong>Итого:</strong> {{ sub.total_time.toFixed(3) }} ч</p>-->
 
       <table class="operations-table">
         <thead>
@@ -147,10 +146,10 @@ onMounted(async () => {
 });
 
 // Формат даты
-function formatDate(dateStr) {
-  const date = new Date(dateStr);
-  return date.toLocaleString('ru-RU');
-}
+// function formatDate(dateStr) {
+//   const date = new Date(dateStr);
+//   return date.toLocaleString('ru-RU');
+// }
 
 function getTypeLabel(type) {
   const labels = {

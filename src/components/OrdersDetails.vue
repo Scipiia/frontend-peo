@@ -1,6 +1,6 @@
 <template>
   <div>
-    <h2>Order Details</h2>
+    <h2>Детали коммерческого приложения</h2>
 
     <div v-if="loading">
       <p>Loading...</p>
@@ -11,9 +11,7 @@
     </div>
 
     <div v-else-if="order">
-      <p><strong>ID:</strong> {{ order.id }}</p>
-      <p><strong>Order Number:</strong> {{ order.order_num }}</p>
-      <p><strong>Customer:</strong> {{ order.customer }}</p>
+      <p><strong>Номер заказа:</strong> {{ order.order_num }}</p>
 
         <div>
           <h1>Изделия</h1>
@@ -28,7 +26,7 @@
                 <p><strong>Позиция:</strong> {{ price.position }}</p>
                 <p><strong>Название:</strong> {{ price.name_position }}</p>
                 <p><strong>Количество:</strong> {{ price.count }}</p>
-                <p><strong>Цвет:</strong> {{ price.plan_color }}</p>
+                <p><strong>Цвет:</strong> {{ price.color }}</p>
                 <p><strong>Площадь:</strong> {{ price.sqr }}</p>
               </div>
             </div>
@@ -37,7 +35,6 @@
 
       <!-- Кнопка для генерации Excel -->
       <button @click="goBack">Назад</button>
-      <button @click="generateExcel">Download as Excel</button>
     </div>
 
     <div v-else>
@@ -90,13 +87,6 @@ onMounted(() => {
   fetchOrderDetails();
 });
 
-function generateExcel() {
-  // Формируем URL для скачивания Excel-файла
-  const url = `http://localhost:8080/api/orders/order/generate-excel/${orderId}`;
-
-  // Перенаправляем пользователя на URL
-  window.location.href = url;
-}
 
 function goToForm(price) {
   router.push({
@@ -106,7 +96,7 @@ function goToForm(price) {
       order_num: order.value.order_num,
       name: price.name_position,
       count: price.count,
-      color: price.plan_color,
+      color: price.color,
       customer: order.value.customer,
       sqr: price.sqr,
       image: price.image,
@@ -118,32 +108,142 @@ function goToForm(price) {
 </script>
 
 <style scoped>
+/* Общие стили */
+div {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
 
-.plans-container {
-  display: flex;
-  flex-direction: column; /* Каждая запись на новой строке */
-  gap: 10px; /* Расстояние между записями */
-  align-items: start;
+h2 {
+  color: #333;
+  margin-bottom: 20px;
+  font-weight: 500;
+  border-bottom: 2px solid #4299e1;
+  padding-bottom: 8px;
+}
+
+p {
+  margin: 8px 0;
+  color: #333;
+  line-height: 1.5;
+}
+
+strong {
+  color: #2d3748;
+}
+
+/* Состояния загрузки и ошибки */
+.loading,
+.error,
+.no-order {
+  text-align: center;
+  padding: 40px;
+  font-size: 16px;
+}
+
+.loading {
+  color: #4a5568;
+}
+
+.error {
+  background-color: #fee;
+  color: #e53e3e;
+  border-radius: 8px;
+  border: 1px dashed #c92a2a;
+}
+
+.no-order {
+  color: #777;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  border: 1px dashed #ccc;
+}
+
+/* Блок "Изделия" */
+h1 {
+  font-size: 1.5em;
+  color: #2d3748;
+  margin-top: 30px;
+  margin-bottom: 16px;
   padding-left: 20px;
 }
 
+.plans-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 20px 20px;
+}
+
 .plan-item {
-  display: flex; /* Изображение и текст в строку */
-  align-items: center; /*!* Выравнивание по центру *!*/
-  /*flex-direction: initial;*/
-  gap: 30px; /* Расстояние между изображением и текстом */
+  display: flex;
+  align-items: center;
+  background-color: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: transform 0.1s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+.plan-item:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
+  border-color: #a0aec0;
+}
+
+.plan-item img {
+  border-radius: 6px;
+  object-fit: cover;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
 }
 
 .plan-details {
   display: flex;
-  flex-direction: column; /* Текстовые элементы в столбик */
-  align-items: start;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  flex: 1;
 }
 
 .plan-details p {
-  margin: 2px;
-  padding: 2px;
-  line-height: 1.3;
+  margin: 0;
+  font-size: 14px;
+  color: #2d3748;
 }
 
+/* Кнопка Назад */
+button {
+  margin-top: 24px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #4299e1;
+  background-color: #ebf8ff;
+  border: 1px solid #4299e1;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  align-self: flex-start;
+  margin-left: 20px;
+}
+
+button:hover {
+  background-color: #bee3f8;
+  border-color: #3182ce;
+  color: #2b6cb0;
+}
+
+/* Адаптивность */
+@media (max-width: 600px) {
+  .plan-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .plan-item img {
+    width: 180px;
+    height: auto;
+  }
+}
 </style>

@@ -232,7 +232,7 @@ const filterTo = computed(() => {
 const typeGroups = {
   combined: {
     label: 'Окна и двери',
-    types: ['window', 'door']
+    types: ['window', 'door', 'glyhar']
   },
   loggia: {
     label: 'Лоджии',
@@ -304,7 +304,8 @@ const formatType = (type) => {
     'window': 'Окно',
     'door': 'Дверь',
     'loggia': 'Лоджия',
-    'ms': 'Москитная сетка'
+    'ms': 'Москитная сетка',
+    'glyhar': 'Глухое окно',
   };
   return map[type] || type;
 };
@@ -453,7 +454,7 @@ const loadData = async () => {
     params.append('to', filterTo.value);
     params.append('order_num', orderNum.value);
 
-    const res = await axios.get(`http://localhost:8080/api/alllllll?${params}`);
+    const res = await axios.get(`http://localhost:8080/api/all_final_order?${params}`);
     employees.value = res.data.employees;
     products.value = res.data.products;
 

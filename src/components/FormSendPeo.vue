@@ -5,8 +5,7 @@
     <!-- Информация о заказе -->
     <div class="card-info">
       <p><strong>Номер заказа:</strong> {{ cardInfo.order_num }}</p>
-      <p><strong>Система профилей:</strong> {{ cardInfo.name }}</p>
-      <p><strong>Номер изделия:</strong> {{ cardInfo.position }}</p>
+      <p><strong>Позиция:</strong> {{ cardInfo.position }}</p>
       <p><strong>Количество:</strong> {{ cardInfo.count }}</p>
       <p><strong>Цвет:</strong> {{ cardInfo.color }}</p>
       <p><strong>Заказчик:</strong> {{ cardInfo.customer }}</p>
@@ -23,7 +22,7 @@
     <div class="composite-toggle">
       <label>
         <input type="checkbox" v-model="isComposite" />
-        🔧 Это составная часть (например, фурнитура, глухарь)
+          Это составная часть (например, фурнитура, глухарь)
       </label>
     </div>
 
@@ -48,9 +47,16 @@
           <input
               v-model="availableCustomText"
               type="text"
-              placeholder="например: витраж к двери"
+              placeholder="например: с глухарем"
               class="form-custom-text"
           />
+        <label class="form-control"><strong>Наименование:</strong></label>
+        <input
+            v-model="availableCustomText2"
+            type="text"
+            placeholder="например: витраж к двери"
+            class="form-custom-text"
+        />
       </div>
     </div>
 
@@ -79,9 +85,7 @@
     <!-- Форма операций -->
     <div v-if="fullForm" class="full-form">
       <h3>{{ fullForm.name }}</h3>
-      <h3>{{ fullForm.systema }}</h3>
-      <h3>{{ fullForm.code }}</h3>
-      <h3>Pidorok</h3>
+
 
       <!-- Тип изделия -->
       <div class="part-type-badge">
@@ -138,15 +142,15 @@
       <div class="form-actions">
         <button @click="clearForm" class="btn-cancel">Очистить</button>
         <button @click="saveNormirovka" :disabled="loading" class="btn-save">
-          {{ loading ? 'Сохраняем...' : '💾 Сохранить нормировку' }}
+          {{ loading ? 'Сохраняем...' : 'Сохранить нормировку' }}
         </button>
       </div>
 
       <!-- Кнопка печати после завершения -->
 <!--      <div v-if="showPrintButton" class="print-cta">-->
-        <p>✅ Все части нормированы!</p>
+        <p>Все части нормированы!</p>
         <button @click="goToPrint" class="btn-print">
-          🖨️ Перейти к печати всех нарядов
+            Перейти к печати всех нарядов
         </button>
 <!--      </div>-->
     </div>
@@ -183,9 +187,9 @@ const isComposite = ref(false);
 const selectedParentId = ref(null);
 const availableParents = ref([]);
 const availableCustomText = ref('');
+const availableCustomText2 = ref('');
 const lastRootId = ref(null); // ← хранит ID последнего основного изделия
 
-console.log("GGGGGGG", availableCustomText);
 
 // --- Список основных изделий в этом заказе ---
 watch(isComposite, async (newValue) => {
@@ -310,10 +314,10 @@ async function loadForm(tpl) {
 
 // --- Сохранение нормировки ---
 function saveNormirovka() {
-  if (!fullForm.value) {
-    alert("Форма не загружена");
-    return;
-  }
+  // if (!fullForm.value) {
+  //   alert("Форма не загружена");
+  //   return;
+  // }
 
   // 1. Подготавливаем операции
   const operationsToSend = fullForm.value.operations
@@ -326,10 +330,10 @@ function saveNormirovka() {
         minutes: op.minutes,
       }));
 
-  if (operationsToSend.length === 0) {
-    alert("❌ Все операции имеют значение 0");
-    return;
-  }
+  // if (operationsToSend.length === 0) {
+  //   alert("❌ Все операции имеют значение 0");
+  //   return;
+  // }
 
   const total = operationsToSend.reduce((sum, op) => sum + op.value, 0);
 
@@ -350,12 +354,10 @@ function saveNormirovka() {
     operations: operationsToSend,
     status: "in_production",
     systema: fullForm.value.systema,
-    type_izd: fullForm.value.type_izd,
+    type_izd: availableCustomText2.value || fullForm.value.type_izd,
     profile: fullForm.value.profile,
     sqr: parseFloat(cardInfo.value.sqr),
   };
-
-  console.log("PAYYY", payload);
 
   // 3. Отправляем
   fetch('http://localhost:8080/api/orders/order-norm/form', {
@@ -394,7 +396,6 @@ function saveNormirovka() {
         const createMore = confirm(
             `✅ Нормировка "${fullForm.value.name}" сохранена!\n\nХотите добавить ещё одну часть?`
         );
-        console.log("ROOOOOTTTTTID", rootId);
 
         if (createMore) {
           // Остаться в форме — можно добавить ещё часть
@@ -426,7 +427,7 @@ function clearForm() {
 // --- Переход к печати ---
 function goToPrint() {
   if (!lastRootId.value) {
-    alert("❌ Нет данных для печати. Сначала сохраните основное изделие.");
+    //alert("❌ Нет данных для печати. Сначала сохраните основное изделие.");
     return;
   }
 

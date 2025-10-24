@@ -22,25 +22,6 @@
         <label>Поиск:</label>
         <input v-model="search" placeholder="Поиск по номеру..." />
       </div>
-
-      <div>
-        <label>Сортировка:</label>
-        <select v-model="sortBy">
-          <option value="id">По ID</option>
-          <option value="order_num">По номеру</option>
-          <option value="customer">По клиенту</option>
-          <option value="created_at">По дате</option>
-        </select>
-        <select v-model="sortDir">
-          <option value="desc">По убыванию</option>
-          <option value="asc">По возрастанию</option>
-        </select>
-      </div>
-    </div>
-
-<!--     Кнопки -->
-    <div class="actions">
-      <button @click="generateExcel">Скачать Excel</button>
     </div>
 
     <!-- Таблица -->
@@ -48,10 +29,8 @@
       <table>
         <thead>
         <tr>
-          <th>ID</th>
-          <th>Номер</th>
-          <th>Клиент</th>
-          <th>Создал</th>
+          <th>Заказ</th>
+          <th>Заказчик</th>
           <th>Примечание</th>
         </tr>
         </thead>
@@ -62,10 +41,8 @@
             @click="viewOrderDetails(order.id)"
             style="cursor: pointer;"
         >
-          <td>{{ order.id }}</td>
           <td>{{ order.order_num }}</td>
           <td>{{ order.customer }}</td>
-          <td>{{ order.creator }}</td>
           <td>{{ order.ms_note }}</td>
         </tr>
         </tbody>
@@ -84,14 +61,13 @@ import { useRouter } from 'vue-router';
 
 const router = useRouter();
 const orders = ref([]);
+console.log("ORDERR", orders);
 const errorMessage = ref('');
 
 // Фильтры
 const year = ref(new Date().getFullYear());
 const month = ref(new Date().getMonth() + 1);
 const search = ref(''); // для поиска по order_num
-const sortBy = ref('id'); // сортировка
-const sortDir = ref('desc'); // направление
 
 // Список месяцев
 const months = [
@@ -110,16 +86,21 @@ async function fetchOrders() {
     orders.value = [];
     errorMessage.value = '';
 
+    const params = {};
+
+    // Если есть поиск — игнорируем месяц и год
+    if (search.value) {
+      params.search = search.value;
+      // Можно добавить флаг, чтобы бэкенд знал, что ищем глобально
+      // params.globalSearch = true;
+    } else {
+      // Иначе фильтруем по дате
+      params.year = year.value;
+      params.month = month.value;
+    }
+
     //TODO Добавить поиск по номеру заказа
-    const response = await axios.get('http://localhost:8080/api/orders', {
-      params: {
-        year: year.value,
-        month: month.value,
-        search: search.value,
-        sortBy: sortBy.value,
-        sortDir: sortDir.value
-      }
-    });
+    const response = await axios.get('http://localhost:8080/api/orders', {params});
 
     if (response.data.error) {
       errorMessage.value = response.data.error;
@@ -133,15 +114,9 @@ async function fetchOrders() {
 }
 
 // При изменении любого фильтра — обновляем
-watch([year, month, search, sortBy, sortDir], () => {
+watch([year, month, search], () => {
   fetchOrders();
 });
-
-// Функция для скачивания Excel
-function generateExcel() {
-  const url = `http://localhost:8080/api/generate-excel?year=${year.value}&month=${month.value}&search=${search.value}`;
-  window.location.href = url;
-}
 
 // Переход к деталям
 function viewOrderDetails(orderId) {
@@ -150,22 +125,120 @@ function viewOrderDetails(orderId) {
 </script>
 
 <style scoped>
-form {
+.orders-page {
+  padding: 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+h1 {
+  color: #333;
+  margin-bottom: 20px;
+  font-weight: 500;
+}
+
+/* Стили для фильтров */
+.filters {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  background-color: #f9f9f9;
+  padding: 16px;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.filters label {
+  font-size: 14px;
+  color: #555;
+  min-width: 50px;
+}
+
+.filters input,
+.filters select {
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.filters input:focus,
+.filters select:focus {
+  border-color: #4299e1;
+  box-shadow: 0 0 0 2px rgba(66, 153, 225, 0.2);
+}
+
+.filters input[type="number"] {
+  width: 100px;
+}
+
+.filters input[type="text"] {
+  width: 180px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Таблица */
+.table-container {
+  overflow-x: auto;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+  table-layout: fixed;
+  width: 100%;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #fff;
+  font-size: 14px;
+}
+
+th {
+  background-color: #4299e1;
+  color: white;
+  text-align: left;
+  padding: 12px 16px;
+  font-weight: 500;
+}
+
+td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #ddd;
+  color: #333;
+}
+
+tr:hover {
+  background-color: #f1f7ff;
+  cursor: pointer;
+}
+
+/* Сообщения */
+.error {
+  color: #e53e3e;
+  font-size: 16px;
+  text-align: center;
+  padding: 20px;
+  background-color: #fee;
+  border-radius: 8px;
   margin-bottom: 20px;
 }
-label {
-  margin-right: 10px;
-}
-input {
-  margin-right: 20px;
-}
-ul {
-  list-style-type: none;
-  padding: 0;
-}
-li {
-  border: 1px solid #ccc;
-  padding: 10px;
-  margin-bottom: 10px;
+
+.no-orders {
+  text-align: center;
+  color: #777;
+  font-size: 16px;
+  padding: 40px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  border: 1px dashed #ccc;
 }
 </style>
