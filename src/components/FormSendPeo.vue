@@ -22,7 +22,7 @@
     <div class="composite-toggle">
       <label>
         <input type="checkbox" v-model="isComposite" />
-          Это составная часть (например, фурнитура, глухарь)
+          Это составная часть (витраж к двери(двери с глухарем) и тп)
       </label>
     </div>
 
@@ -121,6 +121,7 @@
                 step="0.001"
                 min="0"
                 class="input-small"
+                @input="recalculateMinutes(op)"
             />
           </td>
           <td>
@@ -273,6 +274,12 @@ function recalculateValue(op) {
   } else {
     op.value = parseFloat((op.original_value * op.count).toFixed(3));
   }
+
+  op.minutes = Math.round(op.value * 60);
+}
+
+function recalculateMinutes(op) {
+  op.minutes = Math.round(op.value * 60);
 }
 
 // --- Загрузка формы по шаблону ---

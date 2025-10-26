@@ -2,19 +2,10 @@
   <div class="print-layout" v-if="assembly">
     <!-- Общая шапка -->
     <div class="header">
-      <p>Пооперационный технологический процесс изготовления конструкции из профиля: {{ assembly.main.name }}</p>
+      <p>Пооперационный технологический процесс {{ assembly.main.head_name }}</p>
       <p><strong>Номер заказа:</strong> {{ assembly.main.order_num }}</p>
-<!--      <p><strong>Дата создания:</strong> {{ formatDate(assembly.main.created_at) }}</p>-->
+      <p><strong>Количество:</strong> {{ assembly.main.count }}</p>
     </div>
-
-    <!-- Основное изделие -->
-<!--    <h2>{{ assembly.main.name }}</h2>-->
-    <p>
-      <strong>Тип:</strong> {{ getTypeLabel(assembly.main.type) }}
-<!--      <strong>ID:</strong> {{ assembly.main.id }}-->
-    </p>
-<!--    <p><strong>Итого:</strong> {{ assembly.main.total_time.toFixed(3) }} ч</p>-->
-
     <table class="operations-table">
         <thead>
         <tr>
@@ -47,13 +38,9 @@
         :key="sub.id"
         class="item-page sub-item"
     >
-<!--      <h2>{{ sub.name }}</h2>-->
-<!--      <p>-->
-<!--&lt;!&ndash;        <strong>ID:</strong> {{ sub.id }} |&ndash;&gt;-->
-<!--&lt;!&ndash;        <strong>Привязано к:</strong> {{ sub.parent_product_id }}&ndash;&gt;-->
-<!--      </p>-->
-<!--      <p><strong>Итого:</strong> {{ sub.total_time.toFixed(3) }} ч</p>-->
-
+      <p>Пооперационный технологический процесс {{ sub.head_name }}</p>
+      <p><strong>Номер заказа:</strong> {{ sub.order_num }}</p>
+      <p><strong>Количество:</strong> {{ sub.count }}</p>
       <table class="operations-table">
         <thead>
         <tr>
@@ -83,7 +70,7 @@
 
     <!-- Кнопка печати -->
     <div class="print-controls">
-      <button @click="print" class="btn-print">🖨️ Распечатать</button>
+      <button @click="print" class="btn-print">Распечатать</button>
     </div>
   </div>
 
@@ -151,16 +138,16 @@ onMounted(async () => {
 //   return date.toLocaleString('ru-RU');
 // }
 
-function getTypeLabel(type) {
-  const labels = {
-    window: 'Окно',
-    glyhar: 'Глухарь',
-    door: 'Дверь',
-    loggia: 'Лоджия',
-    vitrage: 'Витраж'
-  };
-  return labels[type] || type;
-}
+// function getTypeLabel(type) {
+//   const labels = {
+//     window: 'Окно',
+//     glyhar: 'Глухарь',
+//     door: 'Дверь',
+//     loggia: 'Лоджия',
+//     vitrage: 'Витраж'
+//   };
+//   return labels[type] || type;
+// }
 
 function print() {
   window.print();
@@ -168,56 +155,55 @@ function print() {
 </script>
 
 <style>
+
 .print-layout {
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: 'Segoe UI', Tahoma, Verdana, sans-serif;
   max-width: 900px;
-  margin: 20px auto;
-  padding: 20px;
+  margin: 10px auto;
+  padding: 10px;
   background: #fff;
-  border: 1px solid #ddd;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  font-size: 11.5px;
+  line-height: 1.3;
 }
 
 .header {
-  margin-bottom: 40px;
+  margin-bottom: 8px;
 }
 
-/* Каждый наряд — с новой страницы при печати */
+.header p {
+  margin: 2px 0;
+}
+
+/* Каждый наряд — с новой страницы */
 .item-page {
   page-break-before: always;
-  padding: 20px 0;
+  padding: 10px 0;
 }
 
 .item-page:first-child {
   page-break-before: avoid;
 }
 
-h1, h2, h3, h4 {
-  color: #2c3e50;
-}
-
-hr {
-  border: 1px solid #ccc;
-  margin: 20px 0;
-}
-
 .operations-table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
-  font-size: 14px;
+  margin: 6px 0;
+  font-size: 11px;
 }
 
 .operations-table th,
 .operations-table td {
-  border: 1px solid #ccc;
-  padding: 8px;
+  border: 1px solid #000;
+  padding: 3px 5px;
   text-align: left;
 }
 
 .operations-table th {
   background-color: #f2f2f2;
   font-weight: 600;
+  white-space: nowrap;
+  padding: 4px 5px;
+  font-size: 11px;
 }
 
 .total-row {
@@ -230,23 +216,21 @@ hr {
 }
 
 .sub-item {
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  background: #f9f9f9;
+  padding: 8px 0;
 }
 
 .print-controls {
   text-align: center;
-  margin-top: 40px;
+  margin: 20px 0 10px;
 }
 
 .btn-print {
-  padding: 12px 24px;
-  font-size: 16px;
+  padding: 8px 16px;
+  font-size: 14px;
   background: #007bff;
   color: white;
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
 }
 
@@ -254,10 +238,21 @@ hr {
   background: #0056b3;
 }
 
-.loading, .error {
+.loading,
+.error {
   text-align: center;
-  font-size: 18px;
-  padding: 40px;
+  font-size: 14px;
+  padding: 20px;
+}
+
+/* Дополнительные операции — убираем лишние отступы */
+.additional-ops {
+  margin-top: 12px;
+}
+
+.additional-ops label {
+  font-weight: bold;
+  font-size: 12px;
 }
 
 /* Стили для печати */
@@ -275,7 +270,28 @@ hr {
     box-shadow: none;
     border: none;
     margin: 0;
-    padding: 10px;
+    padding: 5px;
+    font-size: 11px;
+  }
+
+  .header,
+  .additional-ops,
+  .operations-table {
+    margin-top: 4px;
+    margin-bottom: 4px;
+  }
+
+  .operations-table th,
+  .operations-table td {
+    padding: 2.5px 4px;
+    font-size: 10.5px;
+  }
+
+  /* Избегаем разрывов внутри таблиц */
+  .operations-table,
+  .additional-ops {
+    page-break-inside: avoid;
   }
 }
+
 </style>

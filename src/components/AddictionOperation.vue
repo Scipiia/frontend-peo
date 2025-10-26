@@ -12,7 +12,7 @@
       </tr>
       </thead>
       <tbody>
-      <tr v-for="n in 5" :key="n">
+      <tr v-for="n in 3" :key="n">
         <td>&nbsp;</td>
         <td>&nbsp;</td>
         <td>&nbsp;</td>
