@@ -8,7 +8,7 @@
       <div><strong>Заказ:</strong></div>
       <div>{{ assembly.main.order_num }}</div>
 
-      <div><strong>Сборка:</strong></div>
+      <div><strong>Изделие:</strong></div>
       <div>{{ assembly.main.name }}</div>
 
       <div><strong>Общее время:</strong></div>
@@ -24,7 +24,6 @@
     <div v-for="item in allItems" :key="item.id" class="item-section">
       <h3>{{ getItemTitle(item)  }}</h3>
       <p>
-        <strong>ID:</strong> {{ item.id }} |
         <strong>Тип:</strong> {{ getTypeLabel(item.type) }}
       </p>
 
@@ -39,7 +38,14 @@
           <th>Операция</th>
           <th>Норма (мин)</th>
           <th>Норма (ч)</th>
-          <th>Исполнители</th>
+          <th style="width: 50%">
+            Исполнители
+            <div class="executor-headers">
+              <span class="header-label">Исполнитель</span>
+              <span class="header-label">Факт (мин)</span>
+              <span class="header-label">Факт (ч)</span>
+            </div>
+          </th>
         </tr>
         </thead>
         <tbody>
@@ -110,7 +116,7 @@
     <div class="actions">
       <button @click="goBack" class="btn-cancel">Назад</button>
       <button @click="saveExecutors" :disabled="loading" class="btn-save">
-        {{ loading ? 'Сохраняем...' : '✅ Сохранить назначения' }}
+        {{ loading ? 'Сохраняем...' : 'Сохранить назначения' }}
       </button>
     </div>
   </div>
@@ -143,7 +149,6 @@ onMounted(async () => {
     const assemblyRes = await fetch(`http://localhost:8080/api/orders/order-norm/${id}`);
     if (!assemblyRes.ok) throw new Error('Не удалось загрузить сборку');
     const data = await assemblyRes.json();
-    console.log("GGGGGGGGGGGGGGGGGGG", data);
 
     // Подготовка данных: добавляем executors к операциям
     const processedItems = data.map(item => ({
@@ -225,20 +230,22 @@ const syncMinutes = (executor) => {
 
 // --- Работа с исполнителями ---
 const addExecutor = (op) => {
+  const currentTotalMinutes = op.executors.reduce((sum, e) => sum + e.actual_minutes, 0);
   const newCount = op.executors.length + 1;
-  const baseMinutes = op.executors.reduce((sum, e) => sum + e.actual_minutes, 0) || op.minutes;
-  const perPerson = Math.max(1, Math.round(baseMinutes / newCount));
+
+  // Делим ТОЧНО, без округления
+  const perPersonMinutes = currentTotalMinutes / newCount;
 
   op.executors.push({
     employee_id: '',
-    actual_minutes: perPerson,
-    actual_value: parseFloat((perPerson / 60).toFixed(3))
+    actual_minutes: perPersonMinutes,
+    actual_value: parseFloat((perPersonMinutes / 60).toFixed(3))
   });
 
-  // Пересчитываем для всех
+  // Обновляем ВСЕХ исполнителей одинаково
   op.executors.forEach(ex => {
-    ex.actual_minutes = perPerson;
-    ex.actual_value = parseFloat((perPerson / 60).toFixed(3));
+    ex.actual_minutes = parseFloat(perPersonMinutes.toFixed(3));
+    ex.actual_value = parseFloat((perPersonMinutes / 60).toFixed(3));
   });
 };
 
@@ -293,19 +300,16 @@ const saveExecutors = async () => {
     }
   }
 
-  // 🔴 Если есть ошибки — не отправляем
+  // Если есть ошибки — не отправляем
   if (errors.length > 0) {
-    alert('❌ Не все операции назначены:\n\n' + errors.join('\n'));
+    alert('Не все операции назначены:\n\n' + errors.join('\n'));
     return;
   }
 
-  // 🔵 Если нет операций вообще
   if (payload.assignments.length === 0) {
-    alert('❌ Нет ни одной операции с назначением');
+    alert('Нет ни одной операции с назначением');
     return;
   }
-
-  console.log("PAAAYAYY", payload);
 
   try {
     const res = await fetch('http://localhost:8080/api/workers', {
@@ -315,15 +319,12 @@ const saveExecutors = async () => {
     });
 
     if (res.ok) {
-      alert('✅ Все исполнители назначены');
-      router.push('/api/norm/orders'); // или на список main-нарядов
-    } else {
-      const text = await res.text();
-      alert('❌ Ошибка: ' + text);
+      //alert('Все исполнители назначены');
+      router.push('/norm/orders');
     }
   } catch (err) {
     console.error('Ошибка отправки:', err);
-    alert('❌ Не удалось сохранить');
+    //alert('Не удалось сохранить');
   }
 };
 
@@ -351,7 +352,6 @@ const goBack = () => {
 
 .total-time {
   font-weight: bold;
-  /*color: #d35400;*/
 }
 
 .item-section {
@@ -478,4 +478,19 @@ h3 {
   background-color: #fff3cd;
   border-left: 4px solid #ffc107;
 }
+
+.executor-headers {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #6c757d;
+  text-align: right;
+}
+
+.header-label {
+  flex: 1;
+  white-space: nowrap;
+}
+
 </style>

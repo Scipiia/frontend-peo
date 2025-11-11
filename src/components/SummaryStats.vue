@@ -10,7 +10,6 @@ const props = defineProps({
   }
 });
 
-const RATE_PER_HOUR = 9999999999999999999;
 
 function normalize(str) {
   return (str || '').trim().toLowerCase();
@@ -21,7 +20,7 @@ function aggregate(items) {
     acc.count += parseFloat(p.count) || 0;
     acc.sqr += parseFloat(p.sqr) || 0;
     acc.hours += parseFloat(p.total_time) || 0;
-    acc.money += parseFloat(p.total_time) * RATE_PER_HOUR || 0;
+    acc.money += parseFloat(p.money) || 0;
     return acc;
   }, { count: 0, sqr: 0, hours: 0, money: 0 });
 
@@ -50,6 +49,7 @@ const summaryData = computed(() => {
   const allDoors1p = products.filter(p =>p.type ==='door' && (p.type_izd === '1П' || p.type_izd === '1Пт'));
   const allDoors15p = products.filter(p =>p.type ==='door' && (p.type_izd === '1.5П' || p.type_izd === '1.5Пт'));
   const allDoors2p = products.filter(p =>p.type ==='door' && (p.type_izd === '2П' || p.type_izd === '2Пт'));
+  const glyhar = products.filter(p =>p.type ==='glyhar' && p.type_izd === 'окно гл.');
 
   const vitrajDoors = products.filter(p => {
     const value = normalize(p.type_izd);
@@ -66,6 +66,7 @@ const summaryData = computed(() => {
   const allDoor15p = aggregate(allDoors15p)
   const allDoor2p = aggregate(allDoors2p)
   const vitrajStats = aggregate(vitrajDoors);
+  const glyharStats = aggregate(glyhar);
   const loggiaStats = aggregate(loggias);
   const mosquitoStats = aggregate(mosquitoNets);
 
@@ -78,6 +79,7 @@ const summaryData = computed(() => {
     { type_izd: 'Всего 1П дверей', profile: '', ...allDoor1p },
     { type_izd: 'Всего 1.5П дверей', profile: '', ...allDoor15p },
     { type_izd: 'Всего 2П дверей', profile: '', ...allDoor2p },
+    { type_izd: 'Всего глухих окон', profile: '', ...glyharStats },
   ].filter(g => g.count > 0);
 
   const loggiaGroup = loggiaStats.count > 0 ? [{
@@ -93,7 +95,7 @@ const summaryData = computed(() => {
   }] : [];
 
   // Общие итоги
-  const total = [coldStats, hotStats, allWindowStats, vitrajStats,  loggiaStats, mosquitoStats, allDoor1p, allDoor15p]
+  const total = [coldStats, hotStats, allWindowStats, vitrajStats,  loggiaStats, mosquitoStats, allDoor1p, allDoor15p, allDoor2p, glyharStats]
       .reduce((acc, g) => ({
         count: acc.count + g.count,
         sqr: acc.sqr + g.sqr,
@@ -177,10 +179,10 @@ function getFixedGrouping(products) {
 
     }
     const acc = productMap.get(key);
-    acc.count += p.count;
-    acc.sqr += p.sqr;
-    acc.hours += p.total_time;
-    acc.money += p.total_time * RATE_PER_HOUR;
+    acc.count += p.count || 0;
+    acc.sqr += p.sqr || 0;
+    acc.hours += p.total_time || 0;
+    acc.money += p.money || 0;
   });
 
 

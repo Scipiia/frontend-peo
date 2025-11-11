@@ -10,20 +10,19 @@ import FinalNormOrdersList from "@/components/FinalNormOrdersList.vue";
 
 
 const routes = [
-    {path : "/api/orders/order-norm/:id", name: "OrdersDetails" , component:  OrdersDetails, props: true},
-    {path: "/api/orders/order-norm/form/:id", name: "FormPagePeo", component: FormPagePeo},
-    {path: "/api/norm/order-norm/print/:id", name: "FormPrintNorm", component: PrintNormOrder},
-    {path: "/api/orders", component: OrdersList},
-    {path: "/api/norm/orders", name: "NormOrdersList", component: NormOrdersList},
-    {path: "/api/norm/orders/order-norm/edit/:id", name: "EditNormOrder", component: EditNormOrder},
-    {path: "/api/norm/workers/:id", name: "AssignWorkers", component: AssignWorkers},
-    {path: "/api/final/orders", name: "FinalNormOrdersList", component: FinalNormOrdersList}
+    {path: "/orders/order-norm/:id", name: "OrdersDetails" , component:  OrdersDetails, props: true},
+    {path: "/orders/order-norm/form/:id", name: "FormPagePeo", component: FormPagePeo},
+    {path: "/norm/order-norm/print/:id", name: "FormPrintNorm", component: PrintNormOrder},
+    {path: "/orders", component: OrdersList},
+    {path: "/norm/orders", name: "NormOrdersList", component: NormOrdersList},
+    {path: "/norm/orders/order-norm/edit/:id", name: "EditNormOrder", component: EditNormOrder},
+    {path: "/norm/workers/:id", name: "AssignWorkers", component: AssignWorkers},
+    {path: "/final/orders", name: "FinalNormOrdersList", component: FinalNormOrdersList}
 ];
 
 const router = createRouter({
     history: createWebHistory(),
     routes
 })
-console.log('Registered routes:', router.getRoutes());
 
 export default router;

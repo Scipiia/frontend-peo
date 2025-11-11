@@ -229,7 +229,7 @@ const groupedTemplates = computed(() => {
     groups[cat] = [];
   });
 
-  allTemplates.value?.Forms?.forEach(tpl => {
+  allTemplates.value?.Template?.forEach(tpl => {
     const cat = tpl.category?.toLowerCase().trim();
     if (categories.includes(cat)) {
       groups[cat].push(tpl);
@@ -247,7 +247,7 @@ const groupedTemplates = computed(() => {
 // --- Загрузка шаблонов ---
 onMounted(async () => {
   try {
-    const res = await fetch('http://localhost:8080/all_templates');
+    const res = await fetch('http://localhost:8080/api/all_templates');
     if (!res.ok) throw new Error('Не удалось загрузить шаблоны');
     allTemplates.value = await res.json();
   } catch (err) {
@@ -286,15 +286,13 @@ function recalculateMinutes(op) {
 async function loadForm(tpl) {
   loading.value = true;
   try {
-    const res = await fetch(`http://localhost:8080/template?code=${tpl.code}`);
+    const res = await fetch(`http://localhost:8080/api/template?code=${tpl.code}`);
     if (!res.ok) throw new Error('Не удалось загрузить форму');
     fullForm.value = await res.json();
 
     // Устанавливаем тип и категорию
     fullForm.value.type = tpl.category;
     fullForm.value.code = tpl.code;
-
-    console.log("FOOOORM", fullForm.value);
 
     // Определяем part_type и parent_product_id
     if (isComposite.value && selectedParentId.value) {
@@ -344,8 +342,7 @@ function saveNormirovka() {
 
   const total = operationsToSend.reduce((sum, op) => sum + op.value, 0);
 
-  console.log("PPPPPPPPPPPPPPPPPPPPPPPPPPPPPP", fullForm.value);
-  // 2. Формируем payload
+  // Формируем payload
   const payload = {
     order_num: cardInfo.value.order_num,
     name: cardInfo.value.name,
@@ -354,7 +351,7 @@ function saveNormirovka() {
     type: fullForm.value.type,
     part_type: fullForm.value.part_type,
     parent_product_id: fullForm.value.parent_product_id,
-    parent_assembly: availableCustomText.value, // (оставляем, если используется)
+    parent_assembly: availableCustomText.value,
     total_time: parseFloat(total.toFixed(3)),
     position: parseInt(cardInfo.value.position),
     customer: cardInfo.value.customer,
@@ -366,8 +363,8 @@ function saveNormirovka() {
     sqr: parseFloat(cardInfo.value.sqr),
   };
 
-  // 3. Отправляем
-  fetch('http://localhost:8080/api/orders/order-norm/form', {
+  // Отправляем
+  fetch('http://localhost:8080/api/orders/order-norm/template', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -375,11 +372,12 @@ function saveNormirovka() {
       .then(res => res.json())
       .then(data => {
         if (!data.order_id) {
-          alert("Ошибка: не получен ID наряда");
+          //alert("Ошибка: не получен ID наряда");
+          console.warn("Ошибка: не получен ID наряда", data.order_id)
           return;
         }
 
-        console.log("Сохранён наряд с ID:", data.order_id);
+        //console.log("Сохранён наряд с ID:", data.order_id);
 
         // rootId — это ID основного (main) наряда, к которому всё привязано
         let rootId;
@@ -401,7 +399,7 @@ function saveNormirovka() {
 
         // 4. Спрашиваем, будем ли добавлять ещё части
         const createMore = confirm(
-            `✅ Нормировка "${fullForm.value.name}" сохранена!\n\nХотите добавить ещё одну часть?`
+            `Нормировка "${fullForm.value.name}" сохранена!\n\nХотите добавить ещё одну часть?`
         );
 
         if (createMore) {
@@ -414,7 +412,7 @@ function saveNormirovka() {
               : lastRootId.value || data.order_id;
 
           // 🔁 Переход на Vue-страницу
-          window.location.href = `/api/norm/order-norm/print/${rootId}`;
+          window.location.href = `/norm/order-norm/print/${rootId}`;
           showPrintButton.value = true;
         }
       })
@@ -439,7 +437,7 @@ function goToPrint() {
   }
 
   // Переходим на страницу печати сборки
-  window.location.href = `/api/norm/order-norm/print/${lastRootId.value}`;
+  window.location.href = `/norm/order-norm/print/${lastRootId.value}`;
 }
 </script>
 

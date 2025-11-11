@@ -7,7 +7,7 @@
     </div>
 
     <div v-else-if="error" class="error">
-      <p>{{ order.error }}</p>
+      <p>{{ error }}</p>
     </div>
 
     <div v-else-if="order">
@@ -38,7 +38,7 @@
     </div>
 
     <div v-else>
-      <p>Order not found.</p>
+      <p>Детали заказа не найдены</p>
     </div>
   </div>
 </template>
@@ -59,8 +59,7 @@ const error = ref(null);
 const order = ref(null);
 
 
-const orderId = route.params.id; // Получаем ID заказа из параметров маршрута
-//console.log('Order ID from route:', orderId);
+const orderId = route.params.id;
 
 
 async function fetchOrderDetails() {
@@ -68,7 +67,6 @@ async function fetchOrderDetails() {
     //const orderId = route.params.id; // Получаем ID заказа из параметров маршрута
     const response = await axios.get(`http://localhost:8080/api/orders/order/${orderId}`);
     order.value = response.data;
-    console.log(order.value)
   } catch (err) {
     console.error('Ошибка при получении деталей заказа:', err);
     error.value = 'Не удалось загрузить детали заказа.';
@@ -79,7 +77,7 @@ async function fetchOrderDetails() {
 
 // Функция для возврата назад
 function goBack() {
-  router.go(-1); // Возвращаемся на предыдущую страницу
+  router.go(-1);
 }
 
 // Получаем данные при монтировании компонента

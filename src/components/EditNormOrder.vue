@@ -1,15 +1,14 @@
 <!-- EditNormOrder.vue -->
 <template>
   <div class="edit-norm-page" v-if="!loading && assembly">
-    <h2>Редактирование сборки</h2>
+    <h2>Редактирование заказа</h2>
     <p><strong>Заказ:</strong> {{ assembly[0]?.order_num }}</p>
 
     <!-- Список всех нарядов в сборке -->
     <div v-for="item in assembly" :key="item.id" class="assembly-item">
       <h3>{{ getItemTitle(item) }}</h3>
       <div class="item-info">
-        <span><strong>ID:</strong> {{ item.id }}</span>
-        <span><strong>Тип:</strong> {{ getTypeLabel(item.type) }}</span>
+        <span><strong>Тип:</strong> {{ item.type_izd }}</span>
         <span><strong>Кол-во:</strong> {{ item.count }}</span>
         <span><strong>Создан:</strong> {{ formatDate(item.created_at) }}</span>
       </div>
@@ -104,7 +103,7 @@
     <div class="actions">
       <button @click="goBack" class="btn-cancel">Назад</button>
       <button @click="saveAll" :disabled="loading" class="btn-save">
-        {{ loading ? 'Сохраняем...' : '✅ Сохранить всё' }}
+        {{ loading ? 'Сохраняем...' : 'Сохранить всё' }}
       </button>
     </div>
   </div>
@@ -121,49 +120,47 @@ const route = useRoute();
 const router = useRouter();
 
 // Состояние
-const assembly = ref([]);     // Все наряды сборки
+const assembly = ref([]);
 const loading = ref(false);
-
 // --- Загрузка данных ---
 onMounted(async () => {
   const id = route.params.id;
   if (!id) {
-    alert("Не указан ID наряда");
-    return router.push('/api/norm/orders/');
+    //alert("Не указан ID наряда");
+    return router.push('/norm/orders/');
   }
 
   loading.value = true;
 
   try {
-    // 1. Получаем текущий наряд, чтобы найти rootId
+    // Получаем текущий наряд, чтобы найти rootId
     const itemRes = await fetch(`http://localhost:8080/api/orders/order-norm/${id}`);
     if (!itemRes.ok) throw new Error('Наряд не найден');
     const currentItem = await itemRes.json();
 
-    // 2. Определяем rootId
+    // Определяем rootId
     let rootId;
     if (currentItem.part_type === 'main') {
       rootId = id;
     } else if (currentItem.parent_product_id) {
       rootId = currentItem.parent_product_id;
     } else {
-      rootId = id; // fallback
+      rootId = id;
     }
 
-    console.log("CURRRR" ,currentItem)
-
-    // 3. Загружаем всю сборку
+    // Загружаем всю сборку
     const assemblyRes = await fetch(`http://localhost:8080/api/orders/order-norm/${rootId}`);
     if (!assemblyRes.ok) throw new Error('Не удалось загрузить сборку');
     const allItems = await assemblyRes.json();
 
-    // 4. Подготовка данных для редактирования
+    // Подготовка данных для редактирования
     assembly.value = allItems.map(item => ({
       id: item.id,
       order_num: item.order_num,
       name: item.name,
       count: item.count,
       type: item.type,
+      type_izd: item.type_izd,
       part_type: item.part_type,
       parent_product_id: item.parent_product_id,
       created_at: item.created_at,
@@ -176,8 +173,8 @@ onMounted(async () => {
     }));
   } catch (err) {
     console.error('Ошибка загрузки:', err);
-    alert('Не удалось загрузить данные. Проверьте соединение.');
-    router.push('/api/norm/orders/');
+    //alert('Не удалось загрузить данные. Проверьте соединение.');
+    router.push('/norm/orders/');
   } finally {
     loading.value = false;
   }
@@ -187,21 +184,21 @@ onMounted(async () => {
 
 // Заголовок наряда
 const getItemTitle = (item) => {
-  if (item.part_type === 'main') return `🔧 Основное изделие: ${item.name}`;
-  return `🔩 Составная часть: ${item.name}`;
+  if (item.part_type === 'main') return `Основное изделие: ${item.name}`;
+  return `Составная часть: ${item.name}`;
 };
 
 // Тип → читаемое название
-const getTypeLabel = (type) => {
-  const labels = {
-    window: 'Окно',
-    glyhar: 'Глухарь',
-    door: 'Дверь',
-    loggia: 'Лоджия',
-    vitrage: 'Витраж'
-  };
-  return labels[type] || type;
-};
+// const getTypeLabel = (type) => {
+//   const labels = {
+//     window: 'Окно',
+//     glyhar: 'Глухарь',
+//     door: 'Дверь',
+//     loggia: 'Лоджия',
+//     vitrage: 'Витраж'
+//   };
+//   return labels[type] || type;
+// };
 
 // Формат даты
 const formatDate = (dateStr) => {
@@ -252,6 +249,7 @@ const saveAll = async () => {
       order_num: item.order_num,
       product_name: item.name,
       type: item.type,
+      status: "in_production",
       total_time: parseFloat(total.toFixed(3)),
       operations: [
         ...item.operations.map(op => ({
@@ -271,6 +269,8 @@ const saveAll = async () => {
       ]
     };
 
+    console.log("PAYYY", payload);
+
     try {
       const res = await fetch(`http://localhost:8080/api/orders/order/norm/update/${item.id}`, {
         method: 'PUT',
@@ -278,7 +278,6 @@ const saveAll = async () => {
         body: JSON.stringify(payload)
       });
 
-      console.log("PAAAAAAAAAAAAY", payload);
 
       return res.ok ? { success: true, id: item.id } : { success: false, id: item.id };
     } catch (err) {
@@ -292,12 +291,14 @@ const saveAll = async () => {
 
   // Результат
   if (successCount === results.length) {
-    alert('✅ Все наряды успешно сохранены');
-    router.push('/api/norm/orders/');
+    //alert('Все наряды успешно сохранены');
+    router.push('/norm/orders/');
   } else if (successCount > 0) {
-    alert(`⚠️ Сохранено ${successCount} из ${results.length} нарядов. Проверьте данные.`);
+    console.error(`Сохранено ${successCount} из ${results.length} нарядов. Проверьте данные.`);
+    //alert(`Сохранено ${successCount} из ${results.length} нарядов. Проверьте данные.`);
   } else {
-    alert('❌ Не удалось сохранить ни один наряд');
+    console.error('Не удалось сохранить ни один наряд');
+    //alert('Не удалось сохранить ни один наряд');
   }
 
   loading.value = false;
@@ -305,9 +306,7 @@ const saveAll = async () => {
 
 // --- Возврат ---
 const goBack = () => {
-  if (confirm('Вернуться без сохранения?')) {
-    router.push('/api/norm/orders/');
-  }
+    router.push('/norm/orders/');
 };
 </script>
 

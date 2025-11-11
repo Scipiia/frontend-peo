@@ -102,8 +102,6 @@ onMounted(async () => {
     // Так как приходит массив, берём первый элемент
     const item = Array.isArray(itemData) ? itemData[0] : itemData;
 
-    console.log("ITEM", item);
-
     // Определяем rootId
     let rootId;
     if (item.part_type === 'main') {
@@ -114,7 +112,6 @@ onMounted(async () => {
       rootId = id;
     }
 
-    console.log("ROOOTIDDDD", rootId);
 
     // Загружаем всю сборку
     const assemblyRes = await fetch(`http://localhost:8080/api/orders/order-norm/${rootId}`);
@@ -131,23 +128,6 @@ onMounted(async () => {
     loading.value = false;
   }
 });
-
-// Формат даты
-// function formatDate(dateStr) {
-//   const date = new Date(dateStr);
-//   return date.toLocaleString('ru-RU');
-// }
-
-// function getTypeLabel(type) {
-//   const labels = {
-//     window: 'Окно',
-//     glyhar: 'Глухарь',
-//     door: 'Дверь',
-//     loggia: 'Лоджия',
-//     vitrage: 'Витраж'
-//   };
-//   return labels[type] || type;
-// }
 
 function print() {
   window.print();
@@ -177,12 +157,15 @@ function print() {
 /* Каждый наряд — с новой страницы */
 .item-page {
   page-break-before: always;
-  padding: 10px 0;
 }
 
-.item-page:first-child {
-  page-break-before: avoid;
+.sub-item:first-of-type {
+  page-break-before: auto !important;
 }
+
+/*.item-page:first-child {*/
+/*  page-break-before: avoid;*/
+/*}*/
 
 .operations-table {
   width: 100%;

@@ -99,8 +99,8 @@
           <td>{{ prod.order_num }}</td>
           <td
               :class="{
-                'profile-empty': prod.customer_type === 'не определено',
-                'cell-warning': prod.customer_type === 'не определено'
+                'profile-empty': prod.customer_type === '',
+                'cell-warning': prod.customer_type === ''
             }"
           >
             {{ prod.customer_type }}
@@ -109,24 +109,24 @@
           <td>{{ formatType(prod.type) }}</td>
           <td
               :class="{
-                'profile-empty': prod.systema === 'не определено',
-                'cell-warning': prod.systema === 'не определено'
+                'profile-empty': prod.systema === '',
+                'cell-warning': prod.systema === ''
             }"
           >
             {{ prod.systema }}
           </td>
           <td
               :class="{
-                'profile-empty': prod.type_izd === 'не определено',
-                'cell-warning': prod.type_izd === 'не определено'
+                'profile-empty': prod.type_izd === '',
+                'cell-warning': prod.type_izd === ''
             }"
           >
             {{ prod.type_izd }}
           </td>
           <td
               :class="{
-                'profile-empty': prod.profile === 'не определено',
-                'cell-warning': prod.profile === 'не определено'
+                'profile-empty': prod.profile === '',
+                'cell-warning': prod.profile === ''
             }"
           >
             {{ prod.profile }}
@@ -136,15 +136,15 @@
           <td>{{ prod.total_time }}</td>
           <td
               :class="{
-                'profile-empty': prod.brigade === 'не определено',
-                'cell-warning': prod.brigade === 'не определено'
+                'profile-empty': prod.brigade === '',
+                'cell-warning': prod.brigade === ''
             }"
           >
             {{ prod.brigade }}
           </td>
           <td>{{ prod.norm_money }}</td>
           <td v-for="emp in employees" :key="emp.id" class="employee-col">
-            {{ getMinutes(prod, emp.id) }}
+            {{ getValue(prod, emp.id) }}
           </td>
         </tr>
         </tbody>
@@ -179,8 +179,6 @@ const openEditModal = (product) => {
 
 const saveAndClose = async (updatedProduct) => {
   try {
-    // PUT /api/product/:id
-    console.log("RESULR", updatedProduct);
     const cleanedProduct = {
       ...updatedProduct,
       sqr: parseFloat(updatedProduct.sqr) || 0,
@@ -204,12 +202,7 @@ const saveAndClose = async (updatedProduct) => {
   }
 };
 import EditProductModal from "@/components/EditProductModal.vue";
-//TODO end
-
-//TODO доп компонент
 import SummaryReport from '@/components/SummaryStats.vue';
-
-//TODO конец доп компонента
 
 const months = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
@@ -240,7 +233,7 @@ const typeGroups = {
   },
   mosquito_net: {
     label: 'Москитные сетки',
-    types: ['ms'] // можно несколько синонимов
+    types: ['ms']
   }
 };
 
@@ -257,7 +250,6 @@ const activeBackendTypes = computed(() => {
     }
   });
 
-  console.log("TYYYPESSSS", result);
   return result;
 });
 
@@ -269,7 +261,7 @@ const products = ref([]);
 
 // Присваиваем порядковые номера
 const productsWithRowNumber = computed(() => {
-  const list = products.value || []; // ← защита от null/undefined
+  const list = products.value || [];
 
   const mainItems = list.filter(p => p.part_type === 'main')
       .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
@@ -319,26 +311,42 @@ const statusType = (status) => {
   return map[status] || status;
 };
 
-const getMinutes = (product, employeeId) => {
-  const minutes = product.employee_minutes?.[String(employeeId)];
-  return minutes ? minutes.toFixed(1) : '';
+const getValue = (product, employeeId) => {
+  const value = product.employee_value?.[String(employeeId)];
+  return value ? value.toFixed(3) : '';
 };
 
 // ========== ЭКСПОРТ В EXCEL ==========
 const exportToExcel = async () => {
-  function getMonthName(date) {
-    const months = [
-      'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
-      'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
-    ];
-    return months[date.getMonth()];
+
+  const monthName = months[month.value - 1];
+  const exportYear = year.value;
+
+  const activeType = activeBackendTypes.value;
+
+  let typeLabel = 'Все типы';
+
+  const combinedSet = new Set(['window', 'door', 'glyhar']);
+  const activeSet = new Set(activeType);
+
+  if (activeType.length > 4) {
+    typeLabel = 'Все типы';
+  } else if (
+      activeSet.size === combinedSet.size &&
+      [...combinedSet].every(t => activeSet.has(t))
+  ) {
+    typeLabel = 'Окна';
+  } else if (activeSet.size === 1 && activeSet.has('loggia')) {
+    typeLabel = 'Лоджии';
+  } else if (activeSet.size === 1 && activeSet.has('ms')) {
+    typeLabel = 'Москитки';
+  } else {
+    typeLabel = [...new Set(activeType.map(formatType))].sort().join(', ');
   }
 
-  const now = new Date();
-  const monthName = getMonthName(now);
-
   const workbook = new ExcelJS.Workbook();
-  const worksheet = workbook.addWorksheet(`Отчёт ПЭО - ${monthName}`);
+  const worksheet = workbook.addWorksheet(`Отчёт ПЭО - ${monthName} ${exportYear} ${typeLabel}`);
+
 
   const headers = [
     '№', 'Спецификация', '№ заказа', 'корп/дил', 'Заказчик',
@@ -385,10 +393,11 @@ const exportToExcel = async () => {
       ''
     ];
 
-    const employeeMinutes = employees.value.map(emp =>
-        getMinutes(prod, emp.id) || ''
+
+    const employeeValue = employees.value.map(emp =>
+        getValue(prod, emp.id) || ''
     );
-    const fullRow = [...row, ...employeeMinutes];
+    const fullRow = [...row, ...employeeValue];
     const excelRow = worksheet.addRow(fullRow);
 
     excelRow.eachCell((cell) => {
@@ -407,13 +416,12 @@ const exportToExcel = async () => {
     });
   });
 
-  // Подсветка колонки "Н/руб" (индекс 14, 1-based → 14)
   const colIndexNRub = 14;
   worksheet.getColumn(colIndexNRub).eachCell({ includeEmpty: true }, (cell) => {
     cell.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FFCCFFFF' } // светло-голубой
+      fgColor: { argb: 'FFCCFFFF' }
     };
     cell.font = { ...cell.font, bold: true };
   });
@@ -434,7 +442,7 @@ const exportToExcel = async () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `peo-report-${now.toISOString().slice(0, 10)}.xlsx`;
+  a.download = `peo-report-${exportYear}-${String(month.value).padStart(2, '0')}.xlsx`;
   a.click();
   URL.revokeObjectURL(url);
 };
@@ -457,20 +465,13 @@ const loadData = async () => {
     const res = await axios.get(`http://localhost:8080/api/all_final_order?${params}`);
     employees.value = res.data.employees;
     products.value = res.data.products;
-
-    console.log('Фильтр from:', filterFrom.value);
-    console.log('Фильтр to:', filterTo.value);
-    console.log('Типы:', activeBackendTypes.value);
-    console.log('ZAKAZ:', orderNum.value);
-
-    console.log('Данные загружены:', res.data);
   } catch (error) {
     console.error('Ошибка загрузки данных:', error);
   }
 };
 
 onMounted(() => {
-  loadData(); // первый вызов
+  loadData();
 });
 </script>
 

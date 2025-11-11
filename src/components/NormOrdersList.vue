@@ -57,16 +57,23 @@
             Просмотр
           </button>
           <button @click="goToWorkers(order)" class="btn-view">
-            Назначить работника
+            Назначить сотрудников
+          </button>
+          <button
+              v-if="order.status !== 'cancel'"
+              @click="cancelOrder(order)"
+              class="btn-view"
+          >
+            Отменить
           </button>
         </td>
-<!--        <td>{{ order.status }}</td>-->
-        <td>{{ getTypeStatus(order.status) }}</td>
+        <td>
+          <span :class="`status-badge type-${order.status}`">{{ getTypeStatus(order.status) }}</span>
+        </td>
       </tr>
       </tbody>
     </table>
 
-    <!-- Пусто -->
     <div v-else-if="!loading" class="no-results">
       {{ filters.order_num || filters.type ? 'Нет заказов по фильтру' : 'Нет нормированных заказов' }}
     </div>
@@ -78,6 +85,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import axios from "axios";
 
 const router = useRouter();
 
@@ -103,7 +111,9 @@ const typeLabels = {
 
 const typeStatus = {
   assigned: "Сотрудники назначены",
-  in_production: "В производстве"
+  in_production: "В производстве",
+  final: "Готов для ПЭО",
+  cancel: "Отменён",
 };
 
 const getTypeLabel = (type) => {
@@ -132,21 +142,18 @@ const fetchOrders = async () => {
     const res = await fetch(`http://localhost:8080/api/orders/order/norm/all?${params}`);
     if (!res.ok) {
       console.error('Ошибка HTTP:', res.status);
-      orders.value = []; // ← не null!
+      orders.value = [];
       return;
     }
 
     const data = await res.json();
 
-    console.log("DATTTTAA", data);
-
-    // 🔹 Убедись, что data — массив. Если null → []
+    // data — массив. Если null → []
     orders.value = Array.isArray(data) ? data : [];
 
   } catch (err) {
     console.error('Ошибка сети:', err);
-    // 🛑 Никогда не делай: orders.value = null
-    orders.value = []; // ✅ всегда массив
+    orders.value = [];
   } finally {
     loading.value = false;
   }
@@ -154,16 +161,29 @@ const fetchOrders = async () => {
 
 // Переход к нормировке
 const goToNormirovka = (order) => {
-  router.push(`/api/norm/orders/order-norm/edit/${order.id}`); // если id есть, или используй другой идентификатор
+  router.push(`/norm/orders/order-norm/edit/${order.id}`);
 };
 
 const goToWorkers = (order) => {
   router.push({ name: 'AssignWorkers', params: { id: order.id } });
 };
 
-// Загружаем при открытии
+const cancelOrder = async (order) => {
+  try {
+
+    const response = await axios.post('http://localhost:8080/api/orders/cancel', {
+      root_product_id: order.id,
+    });
+
+    if (response.status === 200) {
+      order.status = 'cancel'
+    }
+  } catch (error) {
+    console.error('Ошибка при отмене заказа:', error)
+  }
+}
+
 onMounted(() => {
-  // Можно заполнить фильтры из URL
   const urlParams = new URLSearchParams(window.location.search);
   if (urlParams.has('order_num')) filters.value.order_num = urlParams.get('order_num');
   if (urlParams.has('type')) filters.value.type = urlParams.get('type');
@@ -185,7 +205,6 @@ h2 {
   margin-bottom: 20px;
 }
 
-/* Фильтры */
 .filters {
   display: flex;
   gap: 20px;
@@ -213,7 +232,6 @@ h2 {
   font-size: 14px;
 }
 
-/* Таблица */
 .orders-table {
   width: 100%;
   border-collapse: collapse;
@@ -243,7 +261,6 @@ h2 {
   text-align: right;
 }
 
-/* Бейдж типа */
 .type-badge {
   padding: 4px 10px;
   border-radius: 12px;
@@ -258,7 +275,6 @@ h2 {
 .type-badge.type-loggia { background: #fd7e14; }
 .type-badge.type-vitrage{ background: #6f42c1; }
 
-/* Кнопка */
 .btn-view {
   padding: 6px 12px;
   background: #007bff;
@@ -273,7 +289,6 @@ h2 {
   background: #0056b3;
 }
 
-/* Пусто / Загрузка */
 .no-results,
 .loading {
   text-align: center;
@@ -281,4 +296,25 @@ h2 {
   color: #6c757d;
   font-style: italic;
 }
+
+.status-badge {
+  color: white;
+  padding: 6px 10px;
+  margin-left: 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  background-color: #007bff;
+
+  display: inline-block;
+  white-space: nowrap;
+  line-height: 1.2;
+  vertical-align: middle;
+  box-sizing: border-box;
+}
+
+.status-badge.type-in_production  { background-color: #007bff; }
+.status-badge.type-assigned       { background-color: #28a745; }
+.status-badge.type-final          { background-color: #fd7e14; }
+.status-badge.type-cancel         { background-color: #dc3545; }
 </style>

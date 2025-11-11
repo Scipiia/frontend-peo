@@ -61,7 +61,6 @@ import { useRouter } from 'vue-router';
 
 const router = useRouter();
 const orders = ref([]);
-console.log("ORDERR", orders);
 const errorMessage = ref('');
 
 // Фильтры
