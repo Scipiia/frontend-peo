@@ -51,7 +51,7 @@
     <!-- После фильтров -->
     <SummaryReport :products="filteredProductsWithRowNumber" />
 
-    <!-- 4. Модальное окно (если нужно редактировать) -->
+    <!-- Модальное окно (если нужно редактировать) -->
     <EditProductModal
         v-if="editingProduct"
         :product="editingProduct"
@@ -214,14 +214,13 @@ const filterFrom = computed(() => {
 });
 
 const filterTo = computed(() => {
-  // Последний день месяца: первый день следующего месяца - 1 день
   const nextMonth = new Date(year.value, month.value, 0); // 0 = последний день
   const day = String(nextMonth.getDate()).padStart(2, '0');
   const mm = String(month.value).padStart(2, '0');
   return `${year.value}-${mm}-${day}`;
 });
 
-// ========== КОНФИГУРАЦИЯ ТИПОВ ==========
+// ТИПЫ
 const typeGroups = {
   combined: {
     label: 'Окна и двери',
@@ -237,7 +236,6 @@ const typeGroups = {
   }
 };
 
-// Выбранные группы (UI-уровень)
 const selectedTypes = ref(['combined', 'loggia', 'mosquito_net']);
 
 // Активные реальные типы (backend-уровень)
@@ -313,19 +311,17 @@ const statusType = (status) => {
 
 const getValue = (product, employeeId) => {
   const value = product.employee_value?.[String(employeeId)];
-  return value ? value.toFixed(3) : '';
+  return value ? parseFloat(value.toFixed(3)) : '';
 };
 
 // ========== ЭКСПОРТ В EXCEL ==========
 const exportToExcel = async () => {
-
   const monthName = months[month.value - 1];
   const exportYear = year.value;
 
   const activeType = activeBackendTypes.value;
 
   let typeLabel = 'Все типы';
-
   const combinedSet = new Set(['window', 'door', 'glyhar']);
   const activeSet = new Set(activeType);
 
@@ -347,68 +343,84 @@ const exportToExcel = async () => {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet(`Отчёт ПЭО - ${monthName} ${exportYear} ${typeLabel}`);
 
-
+  // === 1. Заголовки основной таблицы ===
   const headers = [
     '№', 'Спецификация', '№ заказа', 'корп/дил', 'Заказчик',
     'Вид продукции', 'Система', 'Наименование', 'Профиль',
-    'Количество', 'Площадь', 'Н/час', 'Изготовитель', 'Н/руб', 'Защ. Пленки', 'пленка н/р'
+    'Количество', 'Площадь', 'Н/час', 'Изготовитель', 'Н/руб'
   ];
 
   const employeeNames = employees.value.map(emp => emp.name);
-  const allHeaders = [...headers, ...employeeNames];
+  const allHeaders = [...headers, ...employeeNames, 'Итого'];
 
   const headerRow = worksheet.addRow(allHeaders);
   headerRow.eachCell((cell) => {
     cell.font = { bold: true, size: 10 };
-    cell.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFEEEEEE' }
-    };
-    cell.border = {
-      top: { style: 'thin' },
-      left: { style: 'thin' },
-      bottom: { style: 'thin' },
-      right: { style: 'thin' }
-    };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEEEEE' } };
+    cell.border = { style: 'thin' };
   });
 
+  // === 2. Данные строк ===
   filteredProductsWithRowNumber.value.forEach(prod => {
     const row = [
       prod.rowNumber,
       prod.parent_assembly || '',
-      prod.order_num || '',
-      prod.customer_type || '',
-      prod.customer || '',
+      prod.order_num || 'не определено',
+      prod.customer_type || 'не определено',
+      prod.customer || 'не определено',
       formatType(prod.type),
-      prod.systema || '',
-      prod.type_izd || '',
-      prod.profile || '',
-      prod.count || '',
+      prod.systema || 'не определено',
+      prod.type_izd || 'не определено',
+      prod.profile || 'не определено',
+      prod.count || 0,
       prod.sqr || 0,
       prod.total_time || 0,
       prod.brigade || 'не определено',
-      prod.norm_money || 0,
-      '',
-      ''
+      prod.norm_money || 0
     ];
 
+    // === Значения по сотрудникам ===
+    const employeeValues = employees.value.map(emp => {
+      const val = getValue(prod, emp.id);
+      return val ? parseFloat(val) : 0;
+    });
 
-    const employeeValue = employees.value.map(emp =>
-        getValue(prod, emp.id) || ''
-    );
-    const fullRow = [...row, ...employeeValue];
+// === Сумма по всем сотрудникам ===
+    const totalEmpValue = employeeValues.reduce((sum, val) => sum + val, 0);
+    const totalEmpFormatted = totalEmpValue > 0 ? parseFloat(totalEmpValue.toFixed(3)) : '';
+
+// === Форматированные строки для ячеек (оставляем как было, но с пустыми строками для 0) ===
+    const employeeValueCells = employees.value.map(emp => {
+      const val = getValue(prod, emp.id);
+      return val ? val : ''; // пусто, если 0 или нет значения
+    });
+
+// === Добавляем итоговый столбец после всех сотрудников ===
+    const fullRow = [
+      ...row,
+      ...employeeValueCells,
+      totalEmpFormatted // последний столбец — итого по сотрудникам
+    ];
+
     const excelRow = worksheet.addRow(fullRow);
+
+    if (totalEmpValue > 0 && Math.abs(totalEmpValue - (parseFloat(prod.total_time) || 0)) > 0.001) {
+      // Например, выделить жёлтым фоном
+      excelRow.eachCell((cell, colNum) => {
+        if (colNum === fullRow.length) {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFFFFF99' }
+          };
+        }
+      });
+    }
 
     excelRow.eachCell((cell) => {
       cell.font = { size: 10 };
       cell.alignment = { vertical: 'middle', horizontal: 'center' };
-      cell.border = {
-        top: { style: 'thin' },
-        left: { style: 'thin' },
-        bottom: { style: 'thin' },
-        right: { style: 'thin' }
-      };
+      cell.border = { style: 'thin' };
 
       if (typeof cell.value === 'string' && cell.value === 'не определено') {
         cell.font = { bold: true, size: 10, color: { argb: 'FFFF0000' } };
@@ -416,17 +428,250 @@ const exportToExcel = async () => {
     });
   });
 
-  const colIndexNRub = 14;
-  worksheet.getColumn(colIndexNRub).eachCell({ includeEmpty: true }, (cell) => {
-    cell.fill = {
-      type: 'pattern',
-      pattern: 'solid',
-      fgColor: { argb: 'FFCCFFFF' }
+  // ===  Пустая строка перед итогами ===
+  worksheet.addRow([]);
+
+  // ===  Сводная статистика (по типам) ===
+  // (оставлю для полноты, но можно закомментировать)
+
+  const products = filteredProductsWithRowNumber.value;
+
+  function normalize(str) {
+    return (str || '').trim().toLowerCase();
+  }
+
+  function aggregate(items) {
+    const total = items.reduce((acc, p) => {
+      acc.sqr += parseFloat(p.sqr) || 0;
+      acc.hours += parseFloat(p.total_time) || 0;
+      acc.money += parseFloat(p.norm_money) || 0;
+      acc.count += parseInt(p.count) || 0;
+      return acc;
+    }, { count: 0, sqr: 0, hours: 0, money: 0 });
+
+    return {
+      count: parseFloat(total.count.toFixed(3)),
+      sqr: parseFloat(total.sqr.toFixed(3)),
+      hours: parseFloat(total.hours.toFixed(3)),
+      money: parseFloat(total.money.toFixed(3))
     };
-    cell.font = { ...cell.font, bold: true };
+  }
+
+  const coldWindows = products.filter(p =>
+      p.type === 'window' && normalize(p.systema).includes('х')
+  );
+  const hotWindows = products.filter(p =>
+      p.type === 'window' && normalize(p.systema).includes('т')
+  );
+  const allWindows = products.filter(p => p.type === 'window' || p.type === 'glyhar');
+  const doors1p = products.filter(p => p.type === 'door' && ['1П', '1Пт'].includes(p.type_izd));
+  const doors15p = products.filter(p => p.type === 'door' && ['1.5П', '1.5Пт'].includes(p.type_izd));
+  const doors2p = products.filter(p => p.type === 'door' && ['2П', '2Пт'].includes(p.type_izd));
+  //const glyhar = products.filter(p => p.type === 'glyhar' && p.type_izd === 'окно гл.');
+  const vitrajDoors = products.filter(p => normalize(p.type_izd) === 'витраж к двери');
+  const loggias = products.filter(p => p.type === 'loggia');
+  const mosquitoNets = products.filter(p => p.type === 'ms');
+
+  const coldStats = aggregate(coldWindows);
+  const hotStats = aggregate(hotWindows);
+  const allWindowStats = aggregate(allWindows);
+  const door1pStats = aggregate(doors1p);
+  const door15pStats = aggregate(doors15p);
+  const door2pStats = aggregate(doors2p);
+  const vitrajStats = aggregate(vitrajDoors);
+  //const glyharStats = aggregate(glyhar);
+  const loggiaStats = aggregate(loggias);
+  const mosquitoStats = aggregate(mosquitoNets);
+
+  const total = [coldStats, hotStats, allWindowStats, door1pStats, door15pStats, door2pStats, vitrajStats, loggiaStats, mosquitoStats] //glyharStats
+      .reduce((acc, g) => ({
+        count: acc.count + g.count,
+        sqr: acc.sqr + g.sqr,
+        hours: acc.hours + g.hours,
+        money: acc.money + g.money
+      }), { count: 0, sqr: 0, hours: 0, money: 0 });
+
+  const totalRounded = {
+    count: parseFloat(total.count.toFixed(3)),
+    sqr: parseFloat(total.sqr.toFixed(3)),
+    hours: parseFloat(total.hours.toFixed(3)),
+    money: parseFloat(total.money.toFixed(3))
+  };
+
+  // === 5. Заголовок сводки ===
+  const summaryHeader = worksheet.addRow(['Сводная статистика']);
+  summaryHeader.getCell(1).font = { bold: true, size: 14 };
+  worksheet.addRow([]); // пустая строка
+
+  const summaryTableHeaders = ['', '', 'Кол-во', 'Площадь, м²', 'Н/час', 'Н/руб'];
+  const summaryHeaderRow = worksheet.addRow(summaryTableHeaders);
+  summaryHeaderRow.eachCell(cell => {
+    cell.font = { bold: true };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDDDDD' } };
+    cell.border = { style: 'thin' };
   });
 
-  // Автоширина
+  const addSummaryRow = (name, profile, data) => {
+    const row = worksheet.addRow([
+      name,
+      '',
+      data.count,
+      data.sqr,
+      data.hours,
+      data.money
+    ]);
+    row.eachCell(cell => {
+      cell.border = { style: 'thin' };
+      if (data.count === 0 && data.sqr === 0 && data.hours === 0 && data.money === 0) {
+        cell.font = { italic: true, color: { argb: 'FF888888' } };
+      }
+    });
+  };
+
+  addSummaryRow('Холодные окна', '', coldStats);
+  addSummaryRow('Теплые окна', '', hotStats);
+  addSummaryRow('Всего окон', '', allWindowStats);
+  addSummaryRow('Витраж к двери', '', vitrajStats);
+  addSummaryRow('Всего 1П дверей', '', door1pStats);
+  addSummaryRow('Всего 1.5П дверей', '', door15pStats);
+  addSummaryRow('Всего 2П дверей', '', door2pStats);
+  //if (glyharStats.count > 0) addSummaryRow('Глухие окна', '', glyharStats);
+  addSummaryRow('Лоджии', '', loggiaStats);
+  addSummaryRow('Москитные сетки', '', mosquitoStats);
+
+  worksheet.addRow([]);
+  const totalRow = worksheet.addRow(['', 'ИТОГО:', totalRounded.count, totalRounded.sqr, totalRounded.hours, totalRounded.money]);
+  totalRow.eachCell((cell, colNum) => {
+    if (colNum >= 3) {
+      cell.font = { bold: true };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFCCFFFF' } };
+    }
+  });
+
+  // === 6. ПУСТАЯ СТРОКА ПЕРЕД ДЕТАЛИЗАЦИЕЙ ===
+  worksheet.addRow([]);
+  worksheet.addRow([]);
+
+  // === ДЕТАЛЬНАЯ ГРУППИРОВКА ПО ПРОФИЛЯМ  ===
+
+  const expectedGroups = [
+    { type_izd: 'окно гл.', profile: 'ах' },
+    { type_izd: 'окно гл.', profile: 'ат' },
+    { type_izd: 'окно гл.', profile: 'ш' },
+    { type_izd: 'окно гл.', profile: 'сх' },
+    { type_izd: 'окно гл.', profile: 'ст' },
+    { type_izd: 'окно пов.-отк.', profile: 'ах' },
+    { type_izd: 'окно пов.-отк.', profile: 'ат' },
+    { type_izd: 'окно пов.-отк.', profile: 'ст' },
+    { type_izd: 'окно пов.-отк.', profile: 'сх' },
+    { type_izd: 'окно пов.-отк.', profile: 'ш' },
+    { type_izd: '1П', profile: 'ах'},
+    { type_izd: '1П', profile: 'ат'},
+    { type_izd: '1П', profile: 'ст'},
+    { type_izd: '1П', profile: 'сх'},
+    { type_izd: '1П', profile: 'ш'},
+    { type_izd: '1Пт', profile: 'ах' },
+    { type_izd: '1Пт', profile: 'ат' },
+    { type_izd: '1Пт', profile: 'ст' },
+    { type_izd: '1Пт', profile: 'сх' },
+    { type_izd: '1Пт', profile: 'ш' },
+    { type_izd: '1.5П', profile: 'ах' },
+    { type_izd: '1.5П', profile: 'ат' },
+    { type_izd: '1.5П', profile: 'ст' },
+    { type_izd: '1.5П', profile: 'сх' },
+    { type_izd: '1.5П', profile: 'ш' },
+    { type_izd: '1.5Пт', profile: 'ах' },
+    { type_izd: '1.5Пт', profile: 'ат' },
+    { type_izd: '1.5Пт', profile: 'ст' },
+    { type_izd: '1.5Пт', profile: 'сх' },
+    { type_izd: '1.5Пт', profile: 'ш' },
+    { type_izd: '2П', profile: 'ах' },
+    { type_izd: '2П', profile: 'ат' },
+    { type_izd: '2П', profile: 'ст' },
+    { type_izd: '2П', profile: 'сх' },
+    { type_izd: '2П', profile: 'ш' },
+    { type_izd: '2Пт', profile: 'ах' },
+    { type_izd: '2Пт', profile: 'ат' },
+    { type_izd: '2Пт', profile: 'ст' },
+    { type_izd: '2Пт', profile: 'сх' },
+    { type_izd: '2Пт', profile: 'ш' },
+  ];
+
+  // Заголовок детальной группировки
+  const detailHeader = worksheet.addRow(['Детализация по профилям']);
+  detailHeader.getCell(1).font = { bold: true, size: 14 };
+  worksheet.addRow([]); // пустая строка
+
+  // Заголовки таблицы детализации
+  const detailHeaders = [
+    'Наименование',
+    'Профиль',
+    'Кол-во',
+    'Площадь',
+    'н/час',
+    'н/руб',
+  ];
+  const detailHeaderRow = worksheet.addRow(detailHeaders);
+  detailHeaderRow.eachCell(cell => {
+    cell.font = { bold: true };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDDDDD' } };
+    cell.border = { style: 'thin' };
+  });
+
+  // Функция для суммирования по группе
+  const groupAggregates = {};
+
+  // Инициализируем все группы
+  expectedGroups.forEach(group => {
+    const key = `${group.type_izd}__${group.profile}`;
+    groupAggregates[key] = {
+      count: 0,
+      sqr: 0,
+      hours: 0,
+      money: 0,
+    };
+  });
+
+  // Агрегируем данные
+  products.forEach(p => {
+    const key = `${p.type_izd}__${p.profile}`;
+    if (!groupAggregates[key]) return; // пропускаем неизвестные комбинации
+
+    const agg = groupAggregates[key];
+    agg.count += parseInt(p.count) || 0;
+    agg.sqr += parseFloat(p.sqr) || 0;
+    agg.hours += parseFloat(p.total_time) || 0;
+    agg.money += parseFloat(p.norm_money) || 0;
+  });
+
+  // Добавляем строки
+  expectedGroups.forEach(group => {
+    const key = `${group.type_izd}__${group.profile}`;
+    const agg = groupAggregates[key] || {
+      count: 0,
+      sqr: 0,
+      hours: 0,
+      money: 0,
+    };
+
+    const row = worksheet.addRow([
+      group.type_izd,
+      group.profile,
+      agg.count,
+      parseFloat(agg.sqr.toFixed(3)),
+      parseFloat(agg.hours.toFixed(3)),
+      parseFloat(agg.money.toFixed(3)), // как в примере — 2 знака
+    ]);
+
+    row.eachCell(cell => {
+      cell.border = { style: 'thin' };
+      if (agg.count === 0 && agg.sqr === 0 && agg.hours === 0 && agg.money === 0) {
+        cell.font = { italic: true, color: { argb: 'FF888888' } };
+      }
+    });
+  });
+
+  // === 8. Автоширина ===
   worksheet.columns.forEach(column => {
     let maxLength = 10;
     column.eachCell({ includeEmpty: true }, cell => {
@@ -436,7 +681,7 @@ const exportToExcel = async () => {
     column.width = Math.min(maxLength + 2, 30);
   });
 
-  // Сохранение
+  // === 9. Экспорт ===
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);

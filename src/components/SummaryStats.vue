@@ -118,7 +118,7 @@ const summaryData = computed(() => {
   };
 });
 
-// Список всех нужных комбинаций — всегда отображаются
+// Список всех нужных комбинаций
 const expectedGroups = [
   { type_izd: 'окно гл.', profile: 'ах' },
   { type_izd: 'окно гл.', profile: 'ат' },
@@ -283,6 +283,16 @@ const isDetailsOpen = ref(false);
   <div v-if="summaryData.totalRounded.count > 0" class="summary-stats total-summary">
     <h4>Всего за месяц</h4>
     <table class="summary-table">
+      <thead>
+      <tr>
+        <th></th>
+        <th></th>
+        <th>Кол-во</th>
+        <th>Площадь, м²</th>
+        <th>Н/час</th>
+        <th>Н/руб</th>
+      </tr>
+      </thead>
       <tbody>
       <tr class="total-row">
         <td colspan="2"><strong>Итого:</strong></td>

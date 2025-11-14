@@ -18,8 +18,8 @@
         <thead>
         <tr>
           <th>Операция</th>
-          <th>Кол-во</th>
           <th>Время (ч)</th>
+          <th>Кол-во</th>
           <th>Время (мин)</th>
         </tr>
         </thead>
@@ -29,7 +29,7 @@
           <td>{{ op.operation_label }}</td>
           <td>
             <input
-                v-model.number="op.count"
+                v-model.number="op.value"
                 type="number"
                 min="0"
                 step="1"
@@ -38,7 +38,7 @@
           </td>
           <td>
             <input
-                v-model.number="op.value"
+                v-model.number="op.count"
                 type="number"
                 step="0.001"
                 min="0"

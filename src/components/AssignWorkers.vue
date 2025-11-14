@@ -1,4 +1,3 @@
-<!-- AssignWorkers.vue -->
 <template>
   <div class="assign-workers" v-if="assembly">
     <h2>Назначение работников</h2>
@@ -68,6 +67,7 @@
                     v-for="emp in employees"
                     :key="emp.id"
                     :value="emp.id"
+                    :disabled="isExecutorSelected(op.executors, emp.id, executor)"
                 >
                   {{ emp.name }}
                 </option>
@@ -137,6 +137,12 @@ const assembly = ref(null);       // вся сборка: main + subs
 const employees = ref([]);        // список сотрудников
 const loading = ref(false);
 
+const isExecutorSelected = (executors, empId, currentExecutor) => {
+  return executors.some(ex =>
+      ex !== currentExecutor && ex.employee_id === empId
+  );
+};
+
 // --- Загрузка данных ---
 onMounted(async () => {
   const id = route.params.id;
@@ -150,20 +156,30 @@ onMounted(async () => {
     if (!assemblyRes.ok) throw new Error('Не удалось загрузить сборку');
     const data = await assemblyRes.json();
 
-    // Подготовка данных: добавляем executors к операциям
     const processedItems = data.map(item => ({
       ...item,
-      operations: item.operations.map(op => ({
-        ...op,
-        executors: [
-          {
-            employee_id: '',
-            actual_minutes: op.minutes,
-            actual_value: parseFloat(op.value.toFixed(3))
-          }
-        ]
-      }))
+      operations: item.operations.map(op => {
+        // Если есть assign_workers и это массив — используем его
+        const executors = Array.isArray(op.assign_workers) && op.assign_workers.length > 0
+            ? op.assign_workers.map(ex => ({
+              employee_id: ex.employee_id,
+              actual_minutes: ex.actual_minutes,
+              actual_value: parseFloat(ex.actual_value.toFixed(3))
+            }))
+            : [{
+              // Иначе — один пустой исполнитель с нормой времени
+              employee_id: '',
+              actual_minutes: op.minutes,
+              actual_value: parseFloat(op.value.toFixed(3))
+            }];
+
+        return {
+          ...op,
+          executors // ← уже массив
+        };
+      })
     }));
+
 
     // Разделяем
     const main = processedItems.find(i => i.part_type === 'main') || processedItems[0];

@@ -147,13 +147,10 @@
         </button>
       </div>
 
-      <!-- Кнопка печати после завершения -->
-<!--      <div v-if="showPrintButton" class="print-cta">-->
-        <p>Все части нормированы!</p>
         <button @click="goToPrint" class="btn-print">
             Перейти к печати всех нарядов
         </button>
-<!--      </div>-->
+
     </div>
   </div>
 </template>
@@ -162,18 +159,73 @@
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
+// const route = useRoute();
+//
+// // --- Данные заказа ---
+// const cardInfo = ref({
+//   order_num: route.query.order_num || 'Неизвестно',
+//   name: route.query.name || 'Неизвестно',
+//   count: parseInt(route.query.count) || 1,
+//   color: route.query.color || 'Не указан',
+//   image: route.query.image || '',
+//   customer: route.query.customer || 'Не указан',
+//   sqr: route.query.sqr || 0,
+//   position: route.query.position
+// });
+
 const route = useRoute();
+
+// --- Ключ для sessionStorage ---
+const storageKey = `orderDetail_${route.params.id}_${route.query.position}`;
 
 // --- Данные заказа ---
 const cardInfo = ref({
-  order_num: route.query.order_num || 'Неизвестно',
-  name: route.query.name || 'Неизвестно',
-  count: parseInt(route.query.count) || 1,
-  color: route.query.color || 'Не указан',
-  image: route.query.image || '',
-  customer: route.query.customer || 'Не указан',
-  sqr: route.query.sqr || 0,
-  position: route.query.position
+  order_num: 'Неизвестно',
+  name: 'Неизвестно',
+  count: 0,
+  color: 'Не указан',
+  image: '',
+  customer: 'Не указан',
+  sqr: 0,
+  position: ''
+});
+
+// --- Загрузка данных: сначала из sessionStorage, потом из query ---
+onMounted(() => {
+  // 1. Пытаемся загрузить из sessionStorage
+  const saved = sessionStorage.getItem(storageKey);
+  if (saved) {
+    const data = JSON.parse(saved);
+    cardInfo.value = { ...data };
+    return;
+  }
+
+  // 2. Если нет — читаем из query (первый вход)
+  const fromQuery = {
+    order_num: route.query.order_num || 'Неизвестно',
+    name: route.query.name || 'Неизвестно',
+    count: parseInt(route.query.count) || 1,
+    color: route.query.color || 'Не указан',
+    customer: route.query.customer || 'Не указан',
+    sqr: parseFloat(route.query.sqr) || 0,
+    position: route.query.position || '',
+    image: route.query.image || '' // Base64 может быть здесь
+  };
+
+  // Сохраняем в хранилище для будущих перезагрузок
+  sessionStorage.setItem(storageKey, JSON.stringify(fromQuery));
+  cardInfo.value = fromQuery;
+
+  // 3. Очищаем URL от тяжёлых параметров (чтобы не было 431 при F5)
+  const cleanQuery = { ...route.query };
+  delete cleanQuery.image; // ← удаляем только image, остальное можно оставить
+
+  // Меняем URL без перезагрузки
+  window.history.replaceState(
+      {},
+      '',
+      `${location.pathname}?${new URLSearchParams(cleanQuery).toString()}`
+  );
 });
 
 // --- Управление формой ---
@@ -397,7 +449,7 @@ function saveNormirovka() {
           }
         }
 
-        // 4. Спрашиваем, будем ли добавлять ещё части
+        // Спрашиваем, будем ли добавлять ещё части
         const createMore = confirm(
             `Нормировка "${fullForm.value.name}" сохранена!\n\nХотите добавить ещё одну часть?`
         );
@@ -411,9 +463,10 @@ function saveNormirovka() {
               ? data.order_id
               : lastRootId.value || data.order_id;
 
-          // 🔁 Переход на Vue-страницу
+          // Переход на Vue-страницу
           window.location.href = `/norm/order-norm/print/${rootId}`;
           showPrintButton.value = true;
+          sessionStorage.removeItem(storageKey);
         }
       })
       .catch(err => {

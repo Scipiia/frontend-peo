@@ -58,6 +58,8 @@ const loading = ref(true);
 const error = ref(null);
 const order = ref(null);
 
+console.log("OIOIOI", order);
+
 
 const orderId = route.params.id;
 
@@ -87,19 +89,32 @@ onMounted(() => {
 
 
 function goToForm(price) {
+  // Формируем данные для хранения
+  const orderDetails = {
+    order_num: order.value.order_num,
+    name: price.name_position,
+    count: price.count,
+    color: price.color,
+    customer: order.value.customer,
+    sqr: price.sqr,
+    image: price.image, // Base64 без префикса или с ним — как у вас хранится
+    position: price.position,
+    // Дополнительные поля при необходимости
+  };
+
+  // Сохраняем в sessionStorage под ключом, например, по ID + позиции
+  const storageKey = `orderDetail_${order.value.id}_${price.position}`;
+  sessionStorage.setItem(storageKey, JSON.stringify(orderDetails));
+
+  // Передаём в маршрутизатор ТОЛЬКО лёгкие параметры
   router.push({
     name: 'FormPagePeo',
-    params: { id: price.plan_id}, // Передаем ID карточки
+    params: { id: price.plan_id },
     query: {
-      order_num: order.value.order_num,
-      name: price.name_position,
-      count: price.count,
-      color: price.color,
-      customer: order.value.customer,
-      sqr: price.sqr,
-      image: price.image,
       position: price.position,
-    },
+      // Можно добавить флаг, что данные в storage
+      fromStorage: 'true'
+    }
   });
 }
 
