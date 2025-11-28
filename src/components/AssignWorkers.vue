@@ -79,7 +79,7 @@
                   placeholder="мин"
                   class="input-minutes"
                   min="0"
-                  step="0.5"
+                  step="0.001"
                   @input="syncValue(executor)"
               />
 
@@ -89,7 +89,7 @@
                   placeholder="ч"
                   class="input-minutes"
                   min="0"
-                  step="0.001"
+                  step="0.01"
                   @input="syncMinutes(executor)"
               />
 
@@ -202,7 +202,7 @@ onMounted(async () => {
   }
 });
 
-// --- Все наряды (для итерации) ---
+// --- Все наряды ---
 const allItems = computed(() => {
   if (!assembly.value) return [];
   return [assembly.value.main, ...assembly.value.subs];
@@ -241,42 +241,50 @@ const syncValue = (executor) => {
 };
 
 const syncMinutes = (executor) => {
-  executor.actual_minutes = Math.round(executor.actual_value * 60);
+  executor.actual_minutes = Number(executor.actual_value * 60);
 };
 
 // --- Работа с исполнителями ---
+
+// Добавляем нового исполнителя
 const addExecutor = (op) => {
-  const currentTotalMinutes = op.executors.reduce((sum, e) => sum + e.actual_minutes, 0);
+  // ВСЕГДА считаем от общей нормы операции (op.minutes)
+  const totalValue = op.value; // например, 60 мин
   const newCount = op.executors.length + 1;
 
-  // Делим ТОЧНО, без округления
-  const perPersonMinutes = currentTotalMinutes / newCount;
+  const perPersonValue = parseFloat((totalValue / newCount).toFixed(3));
 
   op.executors.push({
     employee_id: '',
-    actual_minutes: perPersonMinutes,
-    actual_value: parseFloat((perPersonMinutes / 60).toFixed(3))
+    actual_minutes: Number(parseFloat((perPersonValue * 60).toFixed(3))),
+    actual_value: perPersonValue
   });
 
-  // Обновляем ВСЕХ исполнителей одинаково
-  op.executors.forEach(ex => {
-    ex.actual_minutes = parseFloat(perPersonMinutes.toFixed(3));
-    ex.actual_value = parseFloat((perPersonMinutes / 60).toFixed(3));
-  });
+  // Перераспределяем поровну
+  updateExecutorsEvenly(op);
 };
 
+// Удаляем исполнителя
 const removeExecutor = (op, idx) => {
   if (op.executors.length <= 1) return;
   op.executors.splice(idx, 1);
 
-  const currentTotal = op.executors.reduce((sum, e) => sum + e.actual_minutes, 0);
-  const newCount = op.executors.length;
-  const effectiveTotal = Math.max(currentTotal, op.minutes);
-  const perPerson = Math.max(1, Math.round(effectiveTotal / newCount));
+  // После удаления — перераспределяем поровну от общей нормы
+  updateExecutorsEvenly(op);
+};
+
+// Единая функция для перераспределения
+const updateExecutorsEvenly = (op) => {
+  const totalValue = op.value; // общая норма операции
+  const count = op.executors.length;
+
+  if (count === 0) return;
+
+  const perPersonValue = parseFloat((totalValue / count).toFixed(3));
 
   op.executors.forEach(ex => {
-    ex.actual_minutes = perPerson;
-    ex.actual_value = parseFloat((perPerson / 60).toFixed(3));
+    ex.actual_minutes = Number(parseFloat((perPersonValue * 60).toFixed(3)));
+    ex.actual_value = perPersonValue;
   });
 };
 
@@ -326,6 +334,7 @@ const saveExecutors = async () => {
     alert('Нет ни одной операции с назначением');
     return;
   }
+
 
   try {
     const res = await fetch('http://localhost:8080/api/workers', {

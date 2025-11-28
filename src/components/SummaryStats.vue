@@ -32,11 +32,19 @@ function aggregate(items) {
   };
 }
 
-// --- ВСЁ ОБЕРНУТО В computed() ---
 const summaryData = computed(() => {
   const products = props.products;
 
-  // Группы остаются те же, но теперь пересчитываются при изменении props
+  // const coldWindows = products.filter(p =>
+  //     (p.type === 'window' || (p.type === 'glyhar' && p.type_izd !== 'витраж к двери')) && normalize(p.systema).includes('х')
+  // );
+  // console.log("PRPRPRP", products)
+  //
+  // const hotWindows = products.filter(p =>
+  //     (p.type === 'window' || (p.type === 'glyhar' && p.type_izd !== normalize(p.type_izd).includes('Витраж к двери'))) && normalize(p.systema).includes('т') //normalize(p.type_izd).includes('витраж к двери'))
+  // );
+
+  // --- 1. Холодные и тёплые окна ---
   const coldWindows = products.filter(p =>
       p.type === 'window' && normalize(p.systema).includes('х')
   );
@@ -45,16 +53,31 @@ const summaryData = computed(() => {
       p.type === 'window' && normalize(p.systema).includes('т')
   );
 
-  const allWindows = products.filter(p => p.type === 'window');
+  // --- 2. Глухие окна (только те, где НЕ витраж к двери) ---
+  const glyhar = products.filter(p =>
+      p.type === 'glyhar' &&
+      normalize(p.type_izd) !== 'витраж к двери'
+  );
+
+  // --- 3. Витраж к двери (отдельно) ---
+  const vitrajDoors = products.filter(p =>
+      p.type === 'glyhar' &&
+      normalize(p.type_izd) === 'витраж к двери'
+  );
+
+  // --- 4. Все окна = cold + hot + чистые глухари ---
+  const allWindows = [...coldWindows, ...hotWindows, ...glyhar];
+
+  //const allWindows = products.filter(p => p.type === 'window');
   const allDoors1p = products.filter(p =>p.type ==='door' && (p.type_izd === '1П' || p.type_izd === '1Пт'));
   const allDoors15p = products.filter(p =>p.type ==='door' && (p.type_izd === '1.5П' || p.type_izd === '1.5Пт'));
   const allDoors2p = products.filter(p =>p.type ==='door' && (p.type_izd === '2П' || p.type_izd === '2Пт'));
-  const glyhar = products.filter(p =>p.type ==='glyhar' && p.type_izd === 'окно гл.');
+  //const glyhar = products.filter(p =>p.type ==='glyhar' && p.type_izd === 'окно гл.');
 
-  const vitrajDoors = products.filter(p => {
-    const value = normalize(p.type_izd);
-    return value === 'витраж к двери';
-  });
+  // const vitrajDoors = products.filter(p => {
+  //   const value = normalize(p.type_izd);
+  //   return value === 'витраж к двери';
+  // });
 
   const loggias = products.filter(p => p.type === 'loggia');
   const mosquitoNets = products.filter(p => p.type === 'ms');
@@ -62,24 +85,26 @@ const summaryData = computed(() => {
   const coldStats = aggregate(coldWindows);
   const hotStats = aggregate(hotWindows);
   const allWindowStats = aggregate(allWindows);
+  const glyharStats = aggregate(glyhar);
+  const vitrajStats = aggregate(vitrajDoors);
+
+  const loggiaStats = aggregate(loggias);
+  const mosquitoStats = aggregate(mosquitoNets);
+
   const allDoor1p = aggregate(allDoors1p)
   const allDoor15p = aggregate(allDoors15p)
   const allDoor2p = aggregate(allDoors2p)
-  const vitrajStats = aggregate(vitrajDoors);
-  const glyharStats = aggregate(glyhar);
-  const loggiaStats = aggregate(loggias);
-  const mosquitoStats = aggregate(mosquitoNets);
 
   // Формируем группы
   const windowGroups = [
     { type_izd: 'Холодные окна', profile: 'х', ...coldStats },
     { type_izd: 'Теплые окна', profile: 'т', ...hotStats },
+    { type_izd: 'Всего глухих окон', profile: '', ...glyharStats },
     { type_izd: 'Всего окон', profile: '', ...allWindowStats },
     { type_izd: 'Витраж к двери', profile: '', ...vitrajStats },
     { type_izd: 'Всего 1П дверей', profile: '', ...allDoor1p },
     { type_izd: 'Всего 1.5П дверей', profile: '', ...allDoor15p },
     { type_izd: 'Всего 2П дверей', profile: '', ...allDoor2p },
-    { type_izd: 'Всего глухих окон', profile: '', ...glyharStats },
   ].filter(g => g.count > 0);
 
   const loggiaGroup = loggiaStats.count > 0 ? [{
@@ -95,7 +120,7 @@ const summaryData = computed(() => {
   }] : [];
 
   // Общие итоги
-  const total = [coldStats, hotStats, allWindowStats, vitrajStats,  loggiaStats, mosquitoStats, allDoor1p, allDoor15p, allDoor2p, glyharStats]
+  const total = [allWindowStats, vitrajStats,  loggiaStats, mosquitoStats, allDoor1p, allDoor15p, allDoor2p, glyharStats]
       .reduce((acc, g) => ({
         count: acc.count + g.count,
         sqr: acc.sqr + g.sqr,

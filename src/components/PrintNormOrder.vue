@@ -1,93 +1,114 @@
 <template>
-  <div class="print-layout" v-if="assembly">
-    <!-- Общая шапка -->
-    <div class="header">
-      <p>Пооперационный технологический процесс {{ assembly.main.head_name }}</p>
-      <p><strong>Номер заказа:</strong> {{ assembly.main.order_num }}</p>
-      <p><strong>Количество:</strong> {{ assembly.main.count }}</p>
+  <div class="print-container">
+    <!-- Основной контент -->
+    <div class="print-layout" v-if="assembly">
+      <!-- Тестовая строка — удалить после проверки -->
+      <!-- <div style="color: red; font-size: 12px; margin: 5px 0;">DEBUG: Данные загружены</div> -->
+
+      <!-- Основной наряд -->
+      <div class="print-page main-page">
+        <div class="header">
+          <p>Пооперационный технологический процесс {{ assembly.main.head_name }}</p>
+          <p><strong>Номер заказа:</strong> {{ assembly.main.order_num }}</p>
+          <p><strong>Количество:</strong> {{ assembly.main.count }}</p>
+
+          <table class="operations-table">
+            <thead>
+            <tr>
+              <th width="40%">Операция</th>
+              <th width="10%">Итого <br> н/час</th>
+              <th width="10%">Итого <br> н/мин</th>
+              <th>ФИО исполнителя</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr v-for="op in assembly.main.operations" :key="op.operation_name">
+              <td>{{ op.operation_label }}</td>
+              <td>{{ op.value.toFixed(3) }}</td>
+              <td>{{ op.minutes }}</td>
+              <td></td>
+            </tr>
+            <tr class="total-row">
+              <td colspan="1" class="text-right"><strong>Итого:</strong></td>
+              <td>{{ assembly.main.total_time.toFixed(3) }}</td>
+              <td>{{ Math.round(assembly.main.total_time * 60) }}</td>
+            </tr>
+            </tbody>
+          </table>
+
+          <!-- Дополнительные операции -->
+          <AddictionOperation />
+        </div>
+      </div>
+
+      <!-- Составные части — каждая с новой страницы -->
+      <div
+          v-for="sub in assembly.subs"
+          :key="sub.id"
+          class="print-page sub-page"
+      >
+        <div class="header">
+        <p>Пооперационный технологический процесс {{ sub.head_name }}</p>
+        <p><strong>Номер заказа:</strong> {{ sub.order_num }}</p>
+        <p><strong>Количество:</strong> {{ sub.count }}</p>
+
+        <table class="operations-table">
+          <thead>
+          <tr>
+            <th width="40%">Операция</th>
+            <th width="10%">Итого <br> н/час</th>
+            <th width="10%">Итого <br> н/мин</th>
+            <th>ФИО исполнителя</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr v-for="op in sub.operations" :key="op.operation_name">
+            <td>{{ op.operation_label }}</td>
+            <td>{{ op.value.toFixed(3) }}</td>
+            <td>{{ op.minutes }}</td>
+            <td></td>
+          </tr>
+          <tr class="total-row">
+            <td colspan="1" class="text-right"><strong>Итого:</strong></td>
+            <td>{{ sub.total_time.toFixed(3) }}</td>
+            <td>{{ Math.round(sub.total_time * 60) }}</td>
+          </tr>
+          </tbody>
+        </table>
+
+        <AddictionOperation />
+        </div>
+      </div>
+
+      <!-- Кнопка печати -->
+      <div class="print-controls">
+        <button @click="print" class="btn-print">Распечатать</button>
+      </div>
     </div>
-    <table class="operations-table">
-        <thead>
-        <tr>
-          <th width="40%">Операция</th>
-          <th width="10%">Итого <br> н/час</th>
-          <th width="10%">Итого <br> н/мин</th>
-          <th>ФИО исполнителя</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr v-for="op in assembly.main.operations" :key="op.operation_name">
-          <td>{{ op.operation_label }}</td>
-          <td>{{ op.value.toFixed(3) }}</td>
-          <td>{{ op.minutes }}</td>
-          <td></td>
-        </tr>
-        <tr class="total-row">
-          <td colspan="1" class="text-right"><strong>Итого:</strong></td>
-          <td>{{ assembly.main.total_time.toFixed(3) }}</td>
-          <td>{{ Math.round(assembly.main.total_time * 60) }}</td>
-        </tr>
-        </tbody>
-      </table>
 
-      <AdditionalOperationsSection />
-
-    <!-- Каждая составная часть — с новой страницы -->
-    <div
-        v-for="sub in assembly.subs"
-        :key="sub.id"
-        class="item-page sub-item"
-    >
-      <p>Пооперационный технологический процесс {{ sub.head_name }}</p>
-      <p><strong>Номер заказа:</strong> {{ sub.order_num }}</p>
-      <p><strong>Количество:</strong> {{ sub.count }}</p>
-      <table class="operations-table">
-        <thead>
-        <tr>
-          <th width="40%">Операция</th>
-          <th width="10%">Итого <br> н/час</th>
-          <th width="10%">Итого <br> н/мин</th>
-          <th>ФИО исполнителя</th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr v-for="op in sub.operations" :key="op.operation_name">
-          <td>{{ op.operation_label }}</td>
-          <td>{{ op.value.toFixed(3) }}</td>
-          <td>{{ op.minutes }}</td>
-          <td></td>
-        </tr>
-        <tr class="total-row">
-          <td colspan="1" class="text-right"><strong>Итого:</strong></td>
-          <td>{{ sub.total_time.toFixed(3) }}</td>
-          <td>{{ Math.round(assembly.main.total_time * 60) }}</td>
-        </tr>
-        </tbody>
-      </table>
-
-      <AdditionalOperationsSection />
+    <!-- Загрузка -->
+    <div v-else-if="loading" class="loading">
+      Загрузка сборки...
     </div>
 
-    <!-- Кнопка печати -->
-    <div class="print-controls">
-      <button @click="print" class="btn-print">Распечатать</button>
+    <!-- Ошибка -->
+    <div v-else class="error">
+      Не удалось загрузить данные.
     </div>
   </div>
-
-  <div v-else-if="loading" class="loading">Загрузка сборки...</div>
-  <div v-else class="error">Не удалось загрузить данные.</div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
-import AdditionalOperationsSection from './AddictionOperation.vue';
+//import AdditionalOperationsSection from "@/components/AdditionalOperationsSection.vue";
+
+import AddictionOperation from "@/components/AddictionOperation.vue";
 
 const route = useRoute();
 const assembly = ref(null);
 const loading = ref(true);
 
-// Загрузка данных
 onMounted(async () => {
   const id = route.params.id;
   if (!id) {
@@ -96,10 +117,11 @@ onMounted(async () => {
   }
 
   try {
+    // Шаг 1: Получаем текущий элемент для определения rootId
     const itemRes = await fetch(`http://localhost:8080/api/orders/order-norm/${id}`);
+    if (!itemRes.ok) throw new Error(`Ошибка загрузки элемента: ${itemRes.status}`);
     const itemData = await itemRes.json();
 
-    // Так как приходит массив, берём первый элемент
     const item = Array.isArray(itemData) ? itemData[0] : itemData;
 
     // Определяем rootId
@@ -112,16 +134,36 @@ onMounted(async () => {
       rootId = id;
     }
 
-
-    // Загружаем всю сборку
+    // Шаг 2: Загружаем всю сборку
     const assemblyRes = await fetch(`http://localhost:8080/api/orders/order-norm/${rootId}`);
-    if (!assemblyRes.ok) throw new Error('Не удалось загрузить сборку');
+    if (!assemblyRes.ok) throw new Error(`Не удалось загрузить сборку: ${assemblyRes.status}`);
     const data = await assemblyRes.json();
 
-    const main = data.find(item => item.part_type === 'main');
-    const subs = data.filter(item => item.part_type === 'sub');
+    // Преобразуем в массив
+    let dataArray;
+    if (Array.isArray(data)) {
+      dataArray = data;
+    } else if (data && typeof data === 'object') {
+      dataArray = [data];
+    } else {
+      throw new Error('Некорректные данные');
+    }
 
-    assembly.value = { main, subs };
+    // Находим main и subs
+    const main = dataArray.find(item => item.part_type === 'main');
+    const subs = dataArray.filter(item => item.part_type === 'sub');
+
+    // Если main нет — используем первый элемент
+    const finalMain = main || (dataArray.length > 0 ? dataArray[0] : null);
+
+    if (!finalMain) {
+      throw new Error('Нет данных для отображения');
+    }
+
+    assembly.value = {
+      main: finalMain,
+      subs: subs
+    };
   } catch (err) {
     console.error('Ошибка загрузки:', err);
   } finally {
@@ -130,47 +172,135 @@ onMounted(async () => {
 });
 
 function print() {
-  window.print();
+  const printLayout = document.querySelector('.print-layout');
+  if (!printLayout) {
+    alert('Нет данных для печати');
+    return;
+  }
+
+  // Клонируем контент, чтобы не повредить оригинал
+  const contentClone = printLayout.cloneNode(true);
+
+  // Находим и удаляем кнопку печати из клона
+  const controls = contentClone.querySelector('.print-controls');
+  if (controls) {
+    controls.remove();
+  }
+
+  // Получаем чистый HTML без кнопки
+  const contentHtml = contentClone.innerHTML;
+
+  const printHtml = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Технологический процесс</title>
+        <style>
+          body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 13px;
+            line-height: 1.4;
+            padding: 15px;
+            margin: 0;
+            color: #000;
+            background: #fff;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            width: 210mm;
+            margin: 0 auto;
+          }
+          .print-page {
+            break-inside: avoid;
+            page-break-inside: avoid;
+            margin-bottom: 12px;
+          }
+          .header p {
+            margin: 2px 0;
+            line-height: 1.2;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 4px 0;
+            font-size: 12px;
+          }
+          th, td {
+            border: 1px solid #000;
+            padding: 4px 6px;
+            text-align: left;
+          }
+          th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+          }
+          .total-row {
+            background-color: #f9f9f9;
+            font-weight: bold;
+          }
+          .additional-ops {
+            margin-top: 6px;
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+          @media print {
+            @page {
+              margin: 1cm;
+              size: A4 portrait;
+            }
+            body {
+              -webkit-print-color-adjust: exact;
+            }
+          }
+        </style>
+      </head>
+      <body onload="window.focus(); window.print();">
+        <div class="print-container">
+          ${contentHtml}
+        </div>
+      </body>
+    </html>
+  `;
+
+  const printWindow = window.open('', '_blank', 'width=1000,height=800');
+  printWindow.document.write(printHtml);
+  printWindow.document.close();
 }
 </script>
 
 <style>
-
-.print-layout {
+.print-container {
   font-family: 'Segoe UI', Tahoma, Verdana, sans-serif;
   max-width: 900px;
   margin: 10px auto;
   padding: 10px;
   background: #fff;
-  font-size: 11.5px;
-  line-height: 1.3;
 }
 
+/* Основной и подчинённые страницы */
+/*.print-page {*/
+/*  margin-bottom: 8px;*/
+/*}*/
+
+/* Только между подчинёнными частями — разрыв страницы */
+/*.sub-page {*/
+/*  break-before: page;*/
+/*  page-break-before: always;*/
+/*}*/
+
 .header {
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .header p {
   margin: 2px 0;
+  line-height: 1.2;
 }
-
-/* Каждый наряд — с новой страницы */
-.item-page {
-  page-break-before: always;
-}
-
-.sub-item:first-of-type {
-  page-break-before: auto !important;
-}
-
-/*.item-page:first-child {*/
-/*  page-break-before: avoid;*/
-/*}*/
 
 .operations-table {
   width: 100%;
   border-collapse: collapse;
-  margin: 6px 0;
+  margin: 4px 0;
   font-size: 11px;
 }
 
@@ -185,7 +315,6 @@ function print() {
   background-color: #f2f2f2;
   font-weight: 600;
   white-space: nowrap;
-  padding: 4px 5px;
   font-size: 11px;
 }
 
@@ -196,10 +325,6 @@ function print() {
 
 .text-right {
   text-align: right;
-}
-
-.sub-item {
-  padding: 8px 0;
 }
 
 .print-controls {
@@ -227,54 +352,76 @@ function print() {
   font-size: 14px;
   padding: 20px;
 }
+</style>
 
-/* Дополнительные операции — убираем лишние отступы */
-.additional-ops {
-  margin-top: 12px;
-}
-
-.additional-ops label {
-  font-weight: bold;
-  font-size: 12px;
-}
-
-/* Стили для печати */
+<!-- Стили для печати -->
+<style scoped>
 @media print {
   .print-controls {
     display: none;
   }
 
-  body {
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  .print-layout {
-    box-shadow: none;
-    border: none;
+  .print-container {
     margin: 0;
-    padding: 5px;
-    font-size: 11px;
+    padding: 6px;
+    font-size: 10px;
+    visibility: visible;
+    height: auto !important;
   }
 
-  .header,
-  .additional-ops,
+  .header {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .header p {
+    margin: 1px 0;
+    line-height: 1.1;
+  }
+
   .operations-table {
-    margin-top: 4px;
-    margin-bottom: 4px;
+    margin: 3px 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    font-size: 10px;
   }
 
   .operations-table th,
   .operations-table td {
-    padding: 2.5px 4px;
-    font-size: 10.5px;
+    padding: 2px 4px;
+    font-size: 9px;
   }
 
-  /* Избегаем разрывов внутри таблиц */
-  .operations-table,
+  /* Защита от разрыва внутри доп. операций */
   .additional-ops {
+    break-inside: avoid;
     page-break-inside: avoid;
+    margin-top: 6px;
+  }
+
+  .additional-ops-label {
+    font-size: 11px;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Убедимся, что основной блок не переносится */
+  .main-page {
+    break-before: auto;
+    orphans: 3;
+    widows: 3;
+  }
+
+  /* Подчинённые части начинаются с новой страницы */
+  .sub-page {
+    break-before: auto;
+    orphans: 3;
+    widows: 3;
+  }
+
+  .print-page {
+    margin: 0;
+    padding-bottom: 8px; /* вместо margin-bottom */
   }
 }
-
 </style>

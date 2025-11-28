@@ -399,11 +399,11 @@ const exportToExcel = async () => {
     const fullRow = [
       ...row,
       ...employeeValueCells,
-      totalEmpFormatted // последний столбец — итого по сотрудникам
+      totalEmpFormatted
     ];
 
     const excelRow = worksheet.addRow(fullRow);
-
+    // последний столбец — итого по сотрудникам
     if (totalEmpValue > 0 && Math.abs(totalEmpValue - (parseFloat(prod.total_time) || 0)) > 0.001) {
       // Например, выделить жёлтым фоном
       excelRow.eachCell((cell, colNum) => {
@@ -457,18 +457,41 @@ const exportToExcel = async () => {
     };
   }
 
+  // --- 1. Холодные и тёплые окна ---
   const coldWindows = products.filter(p =>
       p.type === 'window' && normalize(p.systema).includes('х')
   );
+
   const hotWindows = products.filter(p =>
       p.type === 'window' && normalize(p.systema).includes('т')
   );
-  const allWindows = products.filter(p => p.type === 'window' || p.type === 'glyhar');
+
+  // --- 2. Глухие окна (только те, где НЕ витраж к двери) ---
+  const glyhar = products.filter(p =>
+      p.type === 'glyhar' &&
+      normalize(p.type_izd) !== 'витраж к двери'
+  );
+
+  // --- 3. Витраж к двери (отдельно) ---
+  const vitrajDoors = products.filter(p =>
+      p.type === 'glyhar' &&
+      normalize(p.type_izd) === 'витраж к двери'
+  );
+
+  const allWindows = [...coldWindows, ...hotWindows, ...glyhar];
+
+  // const coldWindows = products.filter(p =>
+  //     p.type === 'window' && normalize(p.systema).includes('х')
+  // );
+  // const hotWindows = products.filter(p =>
+  //     p.type === 'window' && normalize(p.systema).includes('т')
+  // );
+  //const allWindows = products.filter(p => p.type === 'window' || p.type === 'glyhar');
   const doors1p = products.filter(p => p.type === 'door' && ['1П', '1Пт'].includes(p.type_izd));
   const doors15p = products.filter(p => p.type === 'door' && ['1.5П', '1.5Пт'].includes(p.type_izd));
   const doors2p = products.filter(p => p.type === 'door' && ['2П', '2Пт'].includes(p.type_izd));
   //const glyhar = products.filter(p => p.type === 'glyhar' && p.type_izd === 'окно гл.');
-  const vitrajDoors = products.filter(p => normalize(p.type_izd) === 'витраж к двери');
+  //const vitrajDoors = products.filter(p => normalize(p.type_izd) === 'витраж к двери');
   const loggias = products.filter(p => p.type === 'loggia');
   const mosquitoNets = products.filter(p => p.type === 'ms');
 
@@ -483,7 +506,7 @@ const exportToExcel = async () => {
   const loggiaStats = aggregate(loggias);
   const mosquitoStats = aggregate(mosquitoNets);
 
-  const total = [coldStats, hotStats, allWindowStats, door1pStats, door15pStats, door2pStats, vitrajStats, loggiaStats, mosquitoStats] //glyharStats
+  const total = [allWindowStats, door1pStats, door15pStats, door2pStats, vitrajStats, loggiaStats, mosquitoStats] //glyharStats
       .reduce((acc, g) => ({
         count: acc.count + g.count,
         sqr: acc.sqr + g.sqr,
@@ -671,7 +694,7 @@ const exportToExcel = async () => {
     });
   });
 
-  // === 8. Автоширина ===
+  // === Автоширина ===
   worksheet.columns.forEach(column => {
     let maxLength = 10;
     column.eachCell({ includeEmpty: true }, cell => {

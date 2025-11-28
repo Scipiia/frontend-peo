@@ -10,12 +10,32 @@
       <p><strong>Цвет:</strong> {{ cardInfo.color }}</p>
       <p><strong>Заказчик:</strong> {{ cardInfo.customer }}</p>
       <p><strong>Площадь:</strong> {{ cardInfo.sqr }} м²</p>
-      <img
-          v-if="cardInfo.image"
-          :src="`data:image/png;base64,${cardInfo.image}`"
-          alt="Изображение заказа"
-          class="order-image"
-      />
+      <!-- Миниатюра -->
+      <div v-if="cardInfo.image" class="image-preview-container">
+        <img
+            :src="`data:image/png;base64,${cardInfo.image}`"
+            alt="Изображение заказа"
+            class="order-image clickable"
+            @click="showImageModal = true"
+            title="Нажмите, чтобы увеличить"
+        />
+      </div>
+    </div>
+
+    <!-- Модальное окно для увеличенного изображения -->
+    <div
+        v-if="showImageModal"
+        class="image-modal"
+        @click="showImageModal = false"
+    >
+      <div class="modal-content" @click.stop>
+        <img
+            :src="`data:image/png;base64,${cardInfo.image}`"
+            alt="Увеличенное изображение"
+            class="enlarged-image"
+        />
+        <button class="close-btn" @click="showImageModal = false">&times;</button>
+      </div>
     </div>
 
     <!-- Флаг: это составная часть -->
@@ -75,6 +95,7 @@
               :key="tpl.code"
               @click="loadForm(tpl)"
               class="template-item"
+              :class="{ selected: selectedTemplate === tpl.code }"
           >
             {{ tpl.name }}
           </li>
@@ -112,45 +133,46 @@
         </tr>
         </thead>
         <tbody>
-        <tr v-for="op in fullForm.operations" :key="op.name">
-          <td>{{ op.label }}</td>
+        <tr v-for="(item, index) in fullForm.operations" :key="item.name">
+          <td>{{ item.label }}</td>
           <td>
             <input
-                v-model.number="op.value"
                 type="number"
-                step="0.001"
+                step="0.01"
                 min="0"
+                :value="item.dynamicValue"
                 class="input-small"
-                @input="recalculateMinutes(op)"
+                @input="updateValue(index, $event.target.value)"
             />
           </td>
           <td>
             <input
-                v-model.number="op.count"
                 type="number"
                 step="1"
                 min="0"
+                :value="item.count"
                 class="input-small"
-                @input="recalculateValue(op)"
+                @input="updateCount(index, $event.target.value)"
             />
           </td>
-          <td class="text-center">{{ op.minutes }}</td>
+          <td class="text-center">{{ item.minutes }}</td>
         </tr>
         </tbody>
       </table>
 
       <!-- Кнопки управления -->
       <div class="form-actions">
-        <button @click="clearForm" class="btn-cancel">Очистить</button>
+        <button
+            type="button"
+            class="multiply-count-btn"
+            @click="multiplyAllCounts()"
+        >
+          Умножить на кол-во изделий ({{ cardInfo.count }})
+        </button>
         <button @click="saveNormirovka" :disabled="loading" class="btn-save">
           {{ loading ? 'Сохраняем...' : 'Сохранить нормировку' }}
         </button>
       </div>
-
-        <button @click="goToPrint" class="btn-print">
-            Перейти к печати всех нарядов
-        </button>
-
     </div>
   </div>
 </template>
@@ -158,20 +180,7 @@
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
-
-// const route = useRoute();
-//
-// // --- Данные заказа ---
-// const cardInfo = ref({
-//   order_num: route.query.order_num || 'Неизвестно',
-//   name: route.query.name || 'Неизвестно',
-//   count: parseInt(route.query.count) || 1,
-//   color: route.query.color || 'Не указан',
-//   image: route.query.image || '',
-//   customer: route.query.customer || 'Не указан',
-//   sqr: route.query.sqr || 0,
-//   position: route.query.position
-// });
+import router from "@/router";
 
 const route = useRoute();
 
@@ -192,7 +201,7 @@ const cardInfo = ref({
 
 // --- Загрузка данных: сначала из sessionStorage, потом из query ---
 onMounted(() => {
-  // 1. Пытаемся загрузить из sessionStorage
+  // Пытаемся загрузить из sessionStorage
   const saved = sessionStorage.getItem(storageKey);
   if (saved) {
     const data = JSON.parse(saved);
@@ -209,14 +218,14 @@ onMounted(() => {
     customer: route.query.customer || 'Не указан',
     sqr: parseFloat(route.query.sqr) || 0,
     position: route.query.position || '',
-    image: route.query.image || '' // Base64 может быть здесь
+    image: route.query.image || '' // Base64
   };
 
   // Сохраняем в хранилище для будущих перезагрузок
   sessionStorage.setItem(storageKey, JSON.stringify(fromQuery));
   cardInfo.value = fromQuery;
 
-  // 3. Очищаем URL от тяжёлых параметров (чтобы не было 431 при F5)
+  // Очищаем URL от тяжёлых параметров (чтобы не было 431 при F5)
   const cleanQuery = { ...route.query };
   delete cleanQuery.image; // ← удаляем только image, остальное можно оставить
 
@@ -235,14 +244,23 @@ const loading = ref(false);
 const showPrintButton = ref(false);
 
 // --- Составные изделия ---
-//const isCompositeText = ref("");
 const isComposite = ref(false);
 const selectedParentId = ref(null);
 const availableParents = ref([]);
 const availableCustomText = ref('');
 const availableCustomText2 = ref('');
 const lastRootId = ref(null); // ← хранит ID последнего основного изделия
+const selectedTemplate = ref(null);
+const showImageModal = ref(false);
 
+// --- Категории шаблонов ---
+const categoryLabels = {
+  window: 'Окна',
+  glyhar: 'Глухари',
+  loggia: 'Лоджии',
+  vitrage: 'Витражи',
+  door: 'Двери',
+};
 
 // --- Список основных изделий в этом заказе ---
 watch(isComposite, async (newValue) => {
@@ -264,15 +282,6 @@ watch(isComposite, async (newValue) => {
     selectedParentId.value = null;
   }
 });
-
-// --- Категории шаблонов ---
-const categoryLabels = {
-  window: 'Окна',
-  glyhar: 'Глухари',
-  loggia: 'Лоджии',
-  vitrage: 'Витражи',
-  door: 'Двери',
-};
 
 const groupedTemplates = computed(() => {
   const groups = {};
@@ -320,18 +329,73 @@ const totalMinutes = computed(() => {
 });
 
 // --- Пересчёт нормы при изменении количества ---
-function recalculateValue(op) {
-  if (op.count === 0 || !op.original_value) {
-    op.value = 0;
+// Обновление поля Value вручную
+function updateValue(index, newValueStr) {
+  const newValue = parseFloat(newValueStr);
+  if (isNaN(newValue)) return;
+
+  const item = fullForm.value.operations[index];
+  item.dynamicValue = newValue;
+
+  // Обновляем rate: сколько стоит одна единица
+  if (item.count > 0) {
+    item.rate = newValue / item.count;
   } else {
-    op.value = parseFloat((op.original_value * op.count).toFixed(3));
+    // Если count = 0, можно оставить предыдущий rate или установить в newValue
+    item.rate = newValue; // или 0 — зависит от вашей логики
   }
 
-  op.minutes = Math.round(op.value * 60);
+  item.minutes = Number(item.dynamicValue * 60).toFixed(1);
 }
 
-function recalculateMinutes(op) {
-  op.minutes = Math.round(op.value * 60);
+function updateCount(index, newCountStr) {
+  const newCount = parseFloat(newCountStr);
+  if (isNaN(newCount)) return;
+
+  const item = fullForm.value.operations[index];
+
+  // Устанавливаем count для этой операции
+  item.count = newCount;
+
+  // Определяем группу
+  const group = item.group;
+
+  // Если у операции нет группы — только она одна обновляется
+  if (!group) {
+    item.dynamicValue = newCount * item.rate;
+    item.minutes = parseFloat((item.dynamicValue * 60).toFixed(1));
+    return;
+  }
+
+  // Находим все операции в этой группе
+  const operationsInGroup = fullForm.value.operations.filter(op => op.group === group);
+
+  // Обновляем ВСЕ операции в группе
+  operationsInGroup.forEach(op => {
+    op.count = newCount; // одинаковое количество
+    op.dynamicValue = newCount * op.rate;
+    op.minutes = parseFloat((op.dynamicValue * 60).toFixed(1));
+  });
+}
+
+function multiplyAllCounts() {
+  const multiplier = parseInt(cardInfo.value?.count) || 1;
+
+  if (!fullForm.value?.operations) return;
+
+  fullForm.value.operations.forEach(op => {
+    // Сохраняем текущий count до умножения
+    const oldCount = op.count;
+
+    // Умножаем count
+    op.count = oldCount * multiplier;
+
+    // Пересчитываем dynamicValue и minutes
+    op.dynamicValue = op.count * op.rate;
+    op.minutes = parseFloat((op.dynamicValue * 60).toFixed(1));
+  });
+
+  //console.log(`Все количества умножены на ${multiplier}`);
 }
 
 // --- Загрузка формы по шаблону ---
@@ -341,6 +405,8 @@ async function loadForm(tpl) {
     const res = await fetch(`http://localhost:8080/api/template?code=${tpl.code}`);
     if (!res.ok) throw new Error('Не удалось загрузить форму');
     fullForm.value = await res.json();
+
+    //console.log(fullForm.value);
 
     // Устанавливаем тип и категорию
     fullForm.value.type = tpl.category;
@@ -355,12 +421,26 @@ async function loadForm(tpl) {
       fullForm.value.parent_product_id = null;
     }
 
-    // Инициализируем операции
+    fullForm.value.operations = fullForm.value.operations.map(op => ({
+      ...op,
+      count: op.count ?? 0,
+      baseValue: op.value ?? 0,
+      rate: op.value ?? 0,
+      dynamicValue: (op.count ?? 0) * (op.value ?? 0) // начальное значение
+    }));
+
+    const operationsByGroup = {};
     fullForm.value.operations.forEach(op => {
-      op.count = op.count || 0;
-      op.original_value = op.value;
-      recalculateValue(op);
+      if (op.group) {
+        operationsByGroup[op.group] = operationsByGroup[op.group] || [];
+        operationsByGroup[op.group].push(op);
+      }
     });
+
+    fullForm.value.operationsByGroup = operationsByGroup;
+
+    selectedTemplate.value = tpl.code;
+
   } catch (err) {
     console.error('Ошибка загрузки формы:', err);
     alert('Не удалось загрузить форму. Попробуйте снова.');
@@ -371,26 +451,16 @@ async function loadForm(tpl) {
 
 // --- Сохранение нормировки ---
 function saveNormirovka() {
-  // if (!fullForm.value) {
-  //   alert("Форма не загружена");
-  //   return;
-  // }
-
-  // 1. Подготавливаем операции
+  // Подготавливаем операции
   const operationsToSend = fullForm.value.operations
-      .filter(op => typeof op.value === 'number' && op.value > 0)
+      .filter(op => typeof op.dynamicValue === 'number' && op.dynamicValue > 0)
       .map(op => ({
         operation_name: op.name,
         operation_label: op.label,
         count: parseFloat(op.count),
-        value: parseFloat(op.value.toFixed(3)),
-        minutes: op.minutes,
+        value: parseFloat(op.dynamicValue.toFixed(3)),
+        minutes: parseFloat(op.minutes),
       }));
-
-  // if (operationsToSend.length === 0) {
-  //   alert("❌ Все операции имеют значение 0");
-  //   return;
-  // }
 
   const total = operationsToSend.reduce((sum, op) => sum + op.value, 0);
 
@@ -464,9 +534,10 @@ function saveNormirovka() {
               : lastRootId.value || data.order_id;
 
           // Переход на Vue-страницу
-          window.location.href = `/norm/order-norm/print/${rootId}`;
+          //window.location.href = `/norm/order-norm/print/${rootId}`;
+          router.push(`/norm/order-norm/print/${rootId}`);
           showPrintButton.value = true;
-          sessionStorage.removeItem(storageKey);
+          //sessionStorage.removeItem(storageKey);
         }
       })
       .catch(err => {
@@ -476,22 +547,22 @@ function saveNormirovka() {
 }
 
 // --- Очистка формы ---
-function clearForm() {
-  if (confirm("Очистить форму?")) {
-    fullForm.value = null;
-  }
-}
+// function clearForm() {
+//   if (confirm("Очистить форму?")) {
+//     fullForm.value = null;
+//   }
+// }
 
 // --- Переход к печати ---
-function goToPrint() {
-  if (!lastRootId.value) {
-    //alert("❌ Нет данных для печати. Сначала сохраните основное изделие.");
-    return;
-  }
-
-  // Переходим на страницу печати сборки
-  window.location.href = `/norm/order-norm/print/${lastRootId.value}`;
-}
+// function goToPrint() {
+//   if (!lastRootId.value) {
+//     //alert("❌ Нет данных для печати. Сначала сохраните основное изделие.");
+//     return;
+//   }
+//
+//   // Переходим на страницу печати сборки
+//   window.location.href = `/norm/order-norm/print/${lastRootId.value}`;
+// }
 </script>
 
 <style scoped>
@@ -525,10 +596,61 @@ h2 {
 }
 
 .order-image {
-  margin-top: 10px;
-  max-width: 180px;
-  border: 1px solid #dee2e6;
+  max-width: 150px;
+  max-height: 150px;
+  object-fit: cover;
+  border: 1px solid #ddd;
   border-radius: 4px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.order-image:hover {
+  transform: scale(1.05);
+}
+
+/* Модальное окно */
+.image-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.9);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+.enlarged-image {
+  max-width: 90vw;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.close-btn {
+  position: absolute;
+  top: -40px;
+  right: 0;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 36px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+
+.close-btn:hover {
+  opacity: 0.8;
 }
 
 /* === Составные изделия === */
@@ -597,6 +719,13 @@ h2 {
   color: white;
 }
 
+.template-item.selected {
+  background-color: #007bff;
+  color: white;
+  font-weight: 600;
+  border-color: #0069d9;
+}
+
 /* === Форма операций === */
 .full-form {
   margin-top: 20px;
@@ -656,7 +785,7 @@ h2 {
   gap: 10px;
 }
 
-.btn-cancel, .btn-save, .btn-print {
+.btn-cancel, .btn-save, .btn-print, .multiply-count-btn {
   padding: 10px 16px;
   border: none;
   border-radius: 6px;
@@ -664,29 +793,10 @@ h2 {
   font-size: 14px;
 }
 
-.btn-cancel {
-  background: #6c757d;
-  color: white;
-}
 
-.btn-save {
+.btn-save, .multiply-count-btn {
   background: #28a745;
   color: white;
-}
-
-.btn-print {
-  background: #ffc107;
-  color: #212529;
-  font-weight: bold;
-}
-
-.print-cta {
-  margin-top: 20px;
-  padding: 16px;
-  background: #d4edda;
-  border: 1px solid #c3e6cb;
-  border-radius: 8px;
-  text-align: center;
 }
 
 .form-custom-text {
@@ -697,4 +807,26 @@ h2 {
   border-radius: 4px;
   text-align: center;
 }
+
+/*.multiply-count-btn {*/
+/*  margin: 16px 0;*/
+/*  padding: 10px 16px;*/
+/*  background-color: #4caf50;*/
+/*  color: white;*/
+/*  border: none;*/
+/*  border-radius: 6px;*/
+/*  font-size: 14px;*/
+/*  cursor: pointer;*/
+/*  transition: background-color 0.2s;*/
+/*}*/
+
+/*.multiply-count-btn:hover {*/
+/*  background-color: #42a545;*/
+/*}*/
+
+/*.multiply-count-btn:disabled {*/
+/*  background-color: #ccc;*/
+/*  cursor: not-allowed;*/
+/*}*/
+
 </style>

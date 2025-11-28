@@ -32,18 +32,18 @@
                 v-model.number="op.value"
                 type="number"
                 min="0"
-                step="1"
+                step="0.01"
                 class="input-small"
+                @input="syncMinutes(op)"
             />
           </td>
           <td>
             <input
                 v-model.number="op.count"
                 type="number"
-                step="0.001"
+                step="1"
                 min="0"
                 class="input-small"
-                @input="syncMinutes(op)"
             />
           </td>
           <td>
@@ -52,7 +52,6 @@
                 type="number"
                 min="0"
                 class="input-small"
-                @input="syncValue(op)"
             />
           </td>
         </tr>
@@ -69,21 +68,21 @@
           </td>
           <td>
             <input
-                v-model.number="extra.count"
+                v-model.number="extra.value"
                 type="number"
                 min="0"
-                step="1"
+                step="0.01"
                 class="input-small"
+                @input="syncExtraMinutes(extra)"
             />
           </td>
           <td>
             <input
-                v-model.number="extra.value"
+                v-model.number="extra.count"
                 type="number"
-                step="0.001"
+                step="1"
                 min="0"
                 class="input-small"
-                @input="syncExtraMinutes(extra)"
             />
           </td>
           <td>
@@ -105,6 +104,9 @@
       <button @click="saveAll" :disabled="loading" class="btn-save">
         {{ loading ? 'Сохраняем...' : 'Сохранить всё' }}
       </button>
+      <button @click="goToPrint"  class="btn-print">
+        Перейти к печати
+      </button>
     </div>
   </div>
 
@@ -123,17 +125,21 @@ const router = useRouter();
 const assembly = ref([]);
 const loading = ref(false);
 // --- Загрузка данных ---
-onMounted(async () => {
-  const id = route.params.id;
-  if (!id) {
-    //alert("Не указан ID наряда");
-    return router.push('/norm/orders/');
-  }
 
+onMounted(() => {
+  loadAssembly();
+});
+
+const loadAssembly = async () => {
   loading.value = true;
-
   try {
-    // Получаем текущий наряд, чтобы найти rootId
+    const id = route.params.id;
+    if (!id) {
+      console.error("Не указан ID наряда");
+      return router.push('/norm/orders/');
+    }
+
+    // Получаем текущий наряд
     const itemRes = await fetch(`http://localhost:8080/api/orders/order-norm/${id}`);
     if (!itemRes.ok) throw new Error('Наряд не найден');
     const currentItem = await itemRes.json();
@@ -153,7 +159,7 @@ onMounted(async () => {
     if (!assemblyRes.ok) throw new Error('Не удалось загрузить сборку');
     const allItems = await assemblyRes.json();
 
-    // Подготовка данных для редактирования
+    // Обновляем реактивное состояние
     assembly.value = allItems.map(item => ({
       id: item.id,
       order_num: item.order_num,
@@ -164,21 +170,21 @@ onMounted(async () => {
       part_type: item.part_type,
       parent_product_id: item.parent_product_id,
       created_at: item.created_at,
-      operations: item.operations.map(op => ({ ...op })), // копия
+      operations: item.operations.map(op => ({ ...op })),
       extraOperations: [
-        { operation_name: 'dop_rabota_1', operation_label: '', count: 0, value: 0, minutes: 0 },
-        { operation_name: 'dop_rabota_2', operation_label: '', count: 0, value: 0, minutes: 0 },
-        { operation_name: 'dop_rabota_3', operation_label: '', count: 0, value: 0, minutes: 0 }
+        { operation_name: `dop_rabota_${Date.now()}`, operation_label: '', count: 0, value: 0, minutes: 0 },
+        { operation_name: `dop_rabota_${Date.now()}`, operation_label: '', count: 0, value: 0, minutes: 0 },
+        { operation_name: `dop_rabota_${Date.now()}`, operation_label: '', count: 0, value: 0, minutes: 0 }
       ]
     }));
   } catch (err) {
     console.error('Ошибка загрузки:', err);
-    //alert('Не удалось загрузить данные. Проверьте соединение.');
+    alert('Не удалось загрузить данные. Проверьте соединение.');
     router.push('/norm/orders/');
   } finally {
     loading.value = false;
   }
-});
+};
 
 // --- Вспомогательные функции ---
 
@@ -187,18 +193,6 @@ const getItemTitle = (item) => {
   if (item.part_type === 'main') return `Основное изделие: ${item.name}`;
   return `Составная часть: ${item.name}`;
 };
-
-// Тип → читаемое название
-// const getTypeLabel = (type) => {
-//   const labels = {
-//     window: 'Окно',
-//     glyhar: 'Глухарь',
-//     door: 'Дверь',
-//     loggia: 'Лоджия',
-//     vitrage: 'Витраж'
-//   };
-//   return labels[type] || type;
-// };
 
 // Формат даты
 const formatDate = (dateStr) => {
@@ -210,21 +204,21 @@ const formatDate = (dateStr) => {
 // Синхронизация: value → minutes
 const syncMinutes = (op) => {
   if (op.value !== undefined) {
-    op.minutes = Math.round(op.value * 60);
+    op.minutes = (op.value * 60).toFixed(1);
   }
 };
 
 // Синхронизация: minutes → value
-const syncValue = (op) => {
-  if (op.minutes !== undefined) {
-    op.value = parseFloat((op.minutes / 60).toFixed(6));
-  }
-};
+// const syncValue = (op) => {
+//   if (op.minutes !== undefined) {
+//     op.value = parseFloat((op.minutes / 60).toFixed(3));
+//   }
+// };
 
 // Синхронизация: extra.value → extra.minutes
 const syncExtraMinutes = (extra) => {
   if (extra.value !== undefined) {
-    extra.minutes = Math.round(extra.value * 60);
+    extra.minutes = (extra.value * 60).toFixed(1);
   }
 };
 
@@ -255,21 +249,19 @@ const saveAll = async () => {
         ...item.operations.map(op => ({
           operation_name: op.operation_name,
           operation_label: op.operation_label,
-          count: op.count || 0,
-          value: op.value || 0,
-          minutes: op.minutes || 0
+          count: parseInt(op.count) || 0,
+          value: parseFloat(op.value) || 0,
+          minutes: parseFloat(op.minutes) || 0
         })),
         ...validExtra.map(ex => ({
           operation_name: ex.operation_name,
           operation_label: ex.operation_label,
-          count: ex.count || 0,
-          value: ex.value || 0,
-          minutes: ex.minutes || 0
+          count: parseInt(ex.count) || 0,
+          value: parseFloat(ex.value) || 0,
+          minutes: parseFloat(ex.minutes) || 0
         }))
       ]
     };
-
-    console.log("PAYYY", payload);
 
     try {
       const res = await fetch(`http://localhost:8080/api/orders/order/norm/update/${item.id}`, {
@@ -292,7 +284,7 @@ const saveAll = async () => {
   // Результат
   if (successCount === results.length) {
     //alert('Все наряды успешно сохранены');
-    router.push('/norm/orders/');
+    //router.push('/norm/orders/');
   } else if (successCount > 0) {
     console.error(`Сохранено ${successCount} из ${results.length} нарядов. Проверьте данные.`);
     //alert(`Сохранено ${successCount} из ${results.length} нарядов. Проверьте данные.`);
@@ -301,8 +293,22 @@ const saveAll = async () => {
     //alert('Не удалось сохранить ни один наряд');
   }
 
+  // 🔁 Обновляем данные на странице
+  await loadAssembly(); // ← вот он, ключевой момент
+
   loading.value = false;
 };
+
+function goToPrint() {
+  //if (!lastRootId.value) {
+    //alert("❌ Нет данных для печати. Сначала сохраните основное изделие.");
+    //return;
+  //}
+  const id = route.params.id;
+
+  // Переходим на страницу печати сборки
+  window.location.href = `/norm/order-norm/print/${id}`;
+}
 
 // --- Возврат ---
 const goBack = () => {
@@ -397,7 +403,7 @@ h2 {
   margin-right: 10px;
 }
 
-.btn-save {
+.btn-save, .btn-print {
   padding: 10px 16px;
   background: #007bff;
   color: white;
@@ -405,6 +411,8 @@ h2 {
   border-radius: 6px;
   cursor: pointer;
   font-weight: bold;
+  margin-right: 10px;
+  font-size: 14px;
 }
 
 .btn-save:disabled {

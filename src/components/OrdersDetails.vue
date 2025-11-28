@@ -57,12 +57,7 @@ const router = useRouter();
 const loading = ref(true);
 const error = ref(null);
 const order = ref(null);
-
-console.log("OIOIOI", order);
-
-
 const orderId = route.params.id;
-
 
 async function fetchOrderDetails() {
   try {

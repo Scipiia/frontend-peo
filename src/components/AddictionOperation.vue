@@ -1,7 +1,8 @@
-<!-- @/components/AdditionalOperationsSection.vue -->
 <template>
   <div class="additional-ops">
-    <h3 class="additional-ops"><label>Доп работы</label></h3>
+    <h3 class="additional-ops-label">
+      <label>Доп работы</label>
+    </h3>
     <table class="operations-table">
       <thead>
       <tr>
@@ -19,10 +20,9 @@
         <td>&nbsp;</td>
       </tr>
       <tr class="total-row">
-        <td colspan="0" class="text-right">
+        <td colspan="3" class="text-right">
           <strong>Итого доп. работ:</strong>
         </td>
-        <td></td>
         <td></td>
       </tr>
       </tbody>
@@ -30,9 +30,19 @@
   </div>
 </template>
 
-<style>
+<style scoped>
 .additional-ops {
-  margin-top: 24px;
-  font-size: 14px;
+  margin-top: 6px;
+  margin-bottom: 0;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.additional-ops-label {
+  margin: 0;
+  padding: 0;
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 1.2;
 }
 </style>
