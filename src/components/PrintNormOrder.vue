@@ -2,9 +2,6 @@
   <div class="print-container">
     <!-- Основной контент -->
     <div class="print-layout" v-if="assembly">
-      <!-- Тестовая строка — удалить после проверки -->
-      <!-- <div style="color: red; font-size: 12px; margin: 5px 0;">DEBUG: Данные загружены</div> -->
-
       <!-- Основной наряд -->
       <div class="print-page main-page">
         <div class="header">
@@ -83,6 +80,14 @@
       <!-- Кнопка печати -->
       <div class="print-controls">
         <button @click="print" class="btn-print">Распечатать</button>
+        <button
+            v-if="assembly.main && assembly.main.status !== 'cancel'"
+            @click="confirmCancel"
+            class="btn-cancel"
+            :disabled="loadingCancel"
+        >
+          {{ loadingCancel ? 'Отменяем...' : 'Отменить заказ' }}
+        </button>
       </div>
     </div>
 
@@ -101,9 +106,9 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRoute } from 'vue-router';
-//import AdditionalOperationsSection from "@/components/AdditionalOperationsSection.vue";
 
 import AddictionOperation from "@/components/AddictionOperation.vue";
+import axios from "axios";
 
 const route = useRoute();
 const assembly = ref(null);
@@ -117,7 +122,7 @@ onMounted(async () => {
   }
 
   try {
-    // Шаг 1: Получаем текущий элемент для определения rootId
+    // Получаем текущий элемент для определения rootId
     const itemRes = await fetch(`http://localhost:8080/api/orders/order-norm/${id}`);
     if (!itemRes.ok) throw new Error(`Ошибка загрузки элемента: ${itemRes.status}`);
     const itemData = await itemRes.json();
@@ -134,7 +139,7 @@ onMounted(async () => {
       rootId = id;
     }
 
-    // Шаг 2: Загружаем всю сборку
+    // Загружаем всю сборку
     const assemblyRes = await fetch(`http://localhost:8080/api/orders/order-norm/${rootId}`);
     if (!assemblyRes.ok) throw new Error(`Не удалось загрузить сборку: ${assemblyRes.status}`);
     const data = await assemblyRes.json();
@@ -170,6 +175,42 @@ onMounted(async () => {
     loading.value = false;
   }
 });
+
+const loadingCancel = ref(false);
+
+// Подтверждение и отмена
+const confirmCancel = () => {
+    cancelOrder(assembly.value.main);
+};
+
+// Функция отмены заказа
+const cancelOrder = async (order) => {
+  if (!order) return;
+
+  loadingCancel.value = true;
+  try {
+    const response = await axios.post('http://localhost:8080/api/orders/cancel', {
+      root_product_id: order.id,
+    });
+
+    if (response.status === 200) {
+      // Успешно отменён
+      order.status = 'cancel';
+      alert('Заказ успешно отменён.');
+    } else {
+      throw new Error('API вернул неожиданный статус');
+    }
+  } catch (error) {
+    console.error('Ошибка при отмене заказа:', error);
+    let message = 'Не удалось отменить заказ.';
+    if (error.response?.data?.message) {
+      message += '\n' + error.response.data.message;
+    }
+    alert(message);
+  } finally {
+    loadingCancel.value = false;
+  }
+};
 
 function print() {
   const printLayout = document.querySelector('.print-layout');
@@ -423,5 +464,25 @@ function print() {
     margin: 0;
     padding-bottom: 8px; /* вместо margin-bottom */
   }
+}
+
+.btn-cancel {
+  padding: 8px 16px;
+  font-size: 14px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-left: 10px;
+}
+
+.btn-cancel:hover {
+  background: #c82333;
+}
+
+.btn-cancel:disabled {
+  background: #a71d2a;
+  cursor: not-allowed;
 }
 </style>

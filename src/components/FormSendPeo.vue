@@ -63,20 +63,25 @@
         Нет доступных основных изделий. Сначала добавьте основное (дверь, окно и т.п.).
       </p>
       <div class="parent-selection">
+        <!-- Поле "Уточнение для части" -->
         <label class="form-control"><strong>Уточнение для части:</strong></label>
-          <input
-              v-model="availableCustomText"
-              type="text"
-              placeholder="например: с глухарем"
-              class="form-custom-text"
-          />
+        <select
+            v-model="selectedPartDetail"
+            class="form-custom-select"
+        >
+          <option value="">— выберите —</option>
+          <option value="с глухарем">с глухарем</option>
+        </select>
+
+        <!-- Поле "Наименование" -->
         <label class="form-control"><strong>Наименование:</strong></label>
-        <input
-            v-model="availableCustomText2"
-            type="text"
-            placeholder="например: витраж к двери"
-            class="form-custom-text"
-        />
+        <select
+            v-model="selectedName"
+            class="form-custom-select"
+        >
+          <option value="">— выберите —</option>
+          <option value="витраж к двери">витраж к двери</option>
+        </select>
       </div>
     </div>
 
@@ -152,6 +157,7 @@
                 min="0"
                 :value="item.count"
                 class="input-small"
+                :disabled="item.group === 'ign'"
                 @input="updateCount(index, $event.target.value)"
             />
           </td>
@@ -247,11 +253,13 @@ const showPrintButton = ref(false);
 const isComposite = ref(false);
 const selectedParentId = ref(null);
 const availableParents = ref([]);
-const availableCustomText = ref('');
-const availableCustomText2 = ref('');
 const lastRootId = ref(null); // ← хранит ID последнего основного изделия
 const selectedTemplate = ref(null);
 const showImageModal = ref(false);
+
+//выпадающие списки с уточнениями
+const selectedPartDetail = ref('');
+const selectedName = ref('');
 
 // --- Категории шаблонов ---
 const categoryLabels = {
@@ -384,6 +392,13 @@ function multiplyAllCounts() {
   if (!fullForm.value?.operations) return;
 
   fullForm.value.operations.forEach(op => {
+
+    if (op.group && ['ign'].includes(op.group)) {
+      // Можно явно установить 1, если нужно
+      op.count = 1;
+      return;
+    }
+
     // Сохраняем текущий count до умножения
     const oldCount = op.count;
 
@@ -464,6 +479,8 @@ function saveNormirovka() {
 
   const total = operationsToSend.reduce((sum, op) => sum + op.value, 0);
 
+  //console.log("PAY", payload);
+
   // Формируем payload
   const payload = {
     order_num: cardInfo.value.order_num,
@@ -473,14 +490,14 @@ function saveNormirovka() {
     type: fullForm.value.type,
     part_type: fullForm.value.part_type,
     parent_product_id: fullForm.value.parent_product_id,
-    parent_assembly: availableCustomText.value,
+    parent_assembly: selectedPartDetail.value,
     total_time: parseFloat(total.toFixed(3)),
     position: parseInt(cardInfo.value.position),
     customer: cardInfo.value.customer,
     operations: operationsToSend,
     status: "in_production",
     systema: fullForm.value.systema,
-    type_izd: availableCustomText2.value || fullForm.value.type_izd,
+    type_izd: selectedName.value || fullForm.value.type_izd,
     profile: fullForm.value.profile,
     sqr: parseFloat(cardInfo.value.sqr),
   };
@@ -660,6 +677,30 @@ h2 {
   background: #e7f3ff;
   border: 1px dashed #007bff;
   border-radius: 8px;
+}
+
+.form-control {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.form-custom-select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  background: white;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+/* Для совместимости с другими полями */
+.parent-selection small {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #666;
 }
 
 .parent-selection select {

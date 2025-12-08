@@ -45,4 +45,8 @@
   font-weight: bold;
   line-height: 1.2;
 }
+
+.operations-table select {
+  font-size: 12px;
+}
 </style>

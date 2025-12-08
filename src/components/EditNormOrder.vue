@@ -57,12 +57,28 @@
         </tr>
 
         <!-- Доп. операции -->
-        <tr v-for="extra in item.extraOperations" :key="extra.operation_name">
+        <!-- Доп. операции -->
+        <tr v-for="(extra, index) in item.extraOperations" :key="extra.operation_name || `custom_${index}`">
           <td>
+            <!-- Фиксированные операции: выбор из списка -->
+            <select
+                v-if="extra.fixed"
+                v-model="extra.operation_label"
+                class="input-full"
+                @change="updateFixedOperation(extra)"
+                :disabled="loading"
+            >
+              <option value="">-- Выберите операцию --</option>
+              <option value="доп время на напиловку">доп время на напиловку</option>
+              <option value="доп время на сборку">доп время на сборку</option>
+            </select>
+
+            <!-- Произвольные операции: ручной ввод -->
             <input
+                v-else
                 v-model="extra.operation_label"
                 type="text"
-                placeholder="Название доп. операции"
+                placeholder="Введите название операции"
                 class="input-full"
             />
           </td>
@@ -74,6 +90,7 @@
                 step="0.01"
                 class="input-small"
                 @input="syncExtraMinutes(extra)"
+                :disabled="loading"
             />
           </td>
           <td>
@@ -83,6 +100,7 @@
                 step="1"
                 min="0"
                 class="input-small"
+                :disabled="loading"
             />
           </td>
           <td>
@@ -91,6 +109,7 @@
                 type="number"
                 min="0"
                 class="input-small"
+                :disabled="loading"
             />
           </td>
         </tr>
@@ -129,6 +148,17 @@ const loading = ref(false);
 onMounted(() => {
   loadAssembly();
 });
+
+// Обновляем operation_name при изменении operation_label
+const updateFixedOperation = (extra) => {
+  if (extra.operation_label === 'допвремя на напиловку') {
+    extra.operation_name = 'dop_nap';
+  } else if (extra.operation_label === 'доп время на сборку') {
+    extra.operation_name = 'dop_sbor';
+  } else {
+    extra.operation_name = '';
+  }
+};
 
 const loadAssembly = async () => {
   loading.value = true;
@@ -172,9 +202,10 @@ const loadAssembly = async () => {
       created_at: item.created_at,
       operations: item.operations.map(op => ({ ...op })),
       extraOperations: [
-        { operation_name: `dop_rabota_${Date.now()}`, operation_label: '', count: 0, value: 0, minutes: 0 },
-        { operation_name: `dop_rabota_${Date.now()}`, operation_label: '', count: 0, value: 0, minutes: 0 },
-        { operation_name: `dop_rabota_${Date.now()}`, operation_label: '', count: 0, value: 0, minutes: 0 }
+        { operation_name: 'dop_nap', operation_label: '', count: 0, value: 0, minutes: 0, fixed: true },
+        { operation_name: 'dop_sbor', operation_label: '', count: 0, value: 0, minutes: 0, fixed: true },
+        { operation_name: '', operation_label: '', count: 0, value: 0, minutes: 0, fixed: false },
+        { operation_name: '', operation_label: '', count: 0, value: 0, minutes: 0, fixed: false }
       ]
     }));
   } catch (err) {
@@ -217,8 +248,8 @@ const syncMinutes = (op) => {
 
 // Синхронизация: extra.value → extra.minutes
 const syncExtraMinutes = (extra) => {
-  if (extra.value !== undefined) {
-    extra.minutes = (extra.value * 60).toFixed(1);
+  if (typeof extra.value === 'number' && !isNaN(extra.value)) {
+    extra.minutes = parseFloat((extra.value * 60).toFixed(1));
   }
 };
 

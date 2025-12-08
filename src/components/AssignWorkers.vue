@@ -17,6 +17,17 @@
 
       <div><strong>Дата создания:</strong></div>
       <div>{{ formatDate(assembly.main.created_at) }}</div>
+
+      <!-- Поле "Дата выполнения" — как часть той же сетки -->
+      <div><strong>Дата выполнения:</strong></div>
+      <div>
+        <input
+            v-model="dateAccounting"
+            type="date"
+            class="input-date"
+        />
+        <small>Укажите дату изготовления</small>
+      </div>
     </div>
 
     <!-- Список всех нарядов в сборке -->
@@ -136,6 +147,7 @@ const router = useRouter();
 const assembly = ref(null);       // вся сборка: main + subs
 const employees = ref([]);        // список сотрудников
 const loading = ref(false);
+const dateAccounting = ref('');
 
 const isExecutorSelected = (executors, empId, currentExecutor) => {
   return executors.some(ex =>
@@ -185,6 +197,10 @@ onMounted(async () => {
     const main = processedItems.find(i => i.part_type === 'main') || processedItems[0];
     const subs = processedItems.filter(i => i.part_type === 'sub');
 
+
+    // console.log("MAIN", main);
+    // console.log("SUB", subs);
+
     assembly.value = { main, subs };
   } catch (err) {
     console.error('Ошибка загрузки:', err);
@@ -192,6 +208,23 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
+
+  const today = new Date().toISOString().split('T')[0];
+  // Извлекаем дату из ISO-строки (убираем время)
+  const rawDate = assembly.value.main.ready_date;
+
+  let accountingDate = today;
+
+  if (rawDate) {
+    // Пробуем преобразовать, если это ISO-строка
+    const datePart = new Date(rawDate).toISOString().split('T')[0];
+    // Проверим, валидна ли дата
+    if (datePart !== 'Invalid date') {
+      accountingDate = datePart;
+    }
+  }
+
+  dateAccounting.value = accountingDate;
 
   // Загрузка сотрудников
   try {
@@ -237,11 +270,13 @@ const getTypeLabel = (type) => {
 
 // --- Синхронизация: минуты ↔ часы ---
 const syncValue = (executor) => {
-  executor.actual_value = parseFloat((executor.actual_minutes / 60).toFixed(3));
+  const minutes = Number(executor.actual_minutes);
+  executor.actual_value = isNaN(minutes) ? 0 : parseFloat((minutes / 60).toFixed(3));
 };
 
 const syncMinutes = (executor) => {
-  executor.actual_minutes = Number(executor.actual_value * 60);
+  const hours = Number(executor.actual_value);
+  executor.actual_minutes = isNaN(hours) ? 0 : Number((hours * 60).toFixed(3));
 };
 
 // --- Работа с исполнителями ---
@@ -294,6 +329,7 @@ const saveExecutors = async () => {
     assignments: [],
     update_status: "assigned",
     root_product_id: assembly.value.main.id,
+    ready_date: dateAccounting.value,
   };
 
   const errors = [];
@@ -335,6 +371,7 @@ const saveExecutors = async () => {
     return;
   }
 
+  //console.log("PAYYY", payload);
 
   try {
     const res = await fetch('http://localhost:8080/api/workers', {
@@ -373,6 +410,10 @@ const goBack = () => {
   gap: 8px 12px;
   margin-bottom: 24px;
   font-size: 14px;
+}
+
+.info-grid > div {
+  margin: 0;
 }
 
 .total-time {
@@ -516,6 +557,46 @@ h3 {
 .header-label {
   flex: 1;
   white-space: nowrap;
+}
+
+.input-date {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Для small текста под полем */
+.info-grid small {
+  display: block;
+  margin-top: 4px;
+}
+
+.input-date,
+.select-employee,
+.input-minutes {
+  width: 20%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.input-date {
+  /* Убираем стрелки у date-picker в некоторых браузерах */
+  padding-right: 10px;
+}
+
+/* Стили для подсказок под полями */
+.info-grid small {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #666;
+  line-height: 1.2;
 }
 
 </style>

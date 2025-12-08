@@ -236,7 +236,7 @@ const typeGroups = {
   }
 };
 
-const selectedTypes = ref(['combined', 'loggia', 'mosquito_net']);
+const selectedTypes = ref(['combined']);
 
 // Активные реальные типы (backend-уровень)
 const activeBackendTypes = computed(() => {
@@ -730,9 +730,14 @@ const loadData = async () => {
     params.append('to', filterTo.value);
     params.append('order_num', orderNum.value);
 
+    // console.log("PARRRfR", filterFrom.value);
+    // console.log("PARRRtO", filterTo.value);
+
     const res = await axios.get(`http://localhost:8080/api/all_final_order?${params}`);
     employees.value = res.data.employees;
     products.value = res.data.products;
+
+    //console.log("RESSS", res);
   } catch (error) {
     console.error('Ошибка загрузки данных:', error);
   }
