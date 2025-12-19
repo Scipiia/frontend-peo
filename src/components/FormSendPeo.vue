@@ -328,7 +328,7 @@ onMounted(async () => {
 // --- Подсчёт времени ---
 const totalHours = computed(() => {
   return fullForm.value?.operations?.reduce((sum, op) => {
-    return typeof op.value === 'number' ? sum + op.value : sum;
+    return typeof op.dynamicValue === 'number' ? sum + op.dynamicValue : sum;
   }, 0).toFixed(3) || '0.000';
 });
 
