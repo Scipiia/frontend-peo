@@ -92,7 +92,9 @@
             @click="() => openEditModal(prod)"
             class="clickable-row"
         >
-          <td>{{ statusType(prod.status) }}</td>
+          <td>
+            <span :class="`status-badge status-${prod.status}`">{{ getTypeStatus(prod.status) }}</span>
+          </td>
           <td>{{ prod.position }}</td>
           <td>{{ prod.rowNumber }}</td>
           <td>{{ prod.parent_assembly }}</td>
@@ -183,6 +185,7 @@ const saveAndClose = async (updatedProduct) => {
       ...updatedProduct,
       sqr: parseFloat(updatedProduct.sqr) || 0,
       norm_money: parseFloat(updatedProduct.norm_money) || 0,
+      coefficient: parseFloat(updatedProduct.coefficient),
       total_time: parseFloat(updatedProduct.total_time) || 0,
       count: parseInt(updatedProduct.count) || 0,
     };
@@ -208,6 +211,15 @@ const months = [
   'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
   'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'
 ];
+
+const typeStatus = {
+  assigned: "Сотрудники назначены",
+  final: "Готов",
+};
+
+const getTypeStatus = (type) => {
+  return typeStatus[type] || type;
+};
 
 const filterFrom = computed(() => {
   return `${year.value}-${String(month.value).padStart(2, '0')}-01`;
@@ -261,15 +273,28 @@ const products = ref([]);
 const productsWithRowNumber = computed(() => {
   const list = products.value || [];
 
-  const mainItems = list.filter(p => p.part_type === 'main')
-      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const sortedList = [...list].sort((a, b) => {
+    // Сначала сравниваем по ready_date
+    const dateA = a.ready_date ? new Date(a.ready_date) : new Date(0);
+    const dateB = b.ready_date ? new Date(b.ready_date) : new Date(0);
+    const dateDiff = dateB - dateA; // DESC: свежие первыми
 
-  const mainIdToRowNumber = new Map();
-  mainItems.forEach((item, index) => {
-    mainIdToRowNumber.set(item.id, index + 1);
+    if (dateDiff !== 0) return dateDiff;
+
+    // Если оба main или оба sub — по ID (стабильность)
+    return a.id - b.id;
   });
 
-  return list.map(product => {
+  const mainIdToRowNumber = new Map();
+  let counter = 1;
+  for (const item of sortedList) {
+    if (item.part_type === 'main') {
+      mainIdToRowNumber.set(item.id, counter++);
+    }
+  }
+
+  // 3. Добавляем rowNumber ко всем изделиям
+  return sortedList.map(product => {
     let rowNumber = 0;
     if (product.part_type === 'main') {
       rowNumber = mainIdToRowNumber.get(product.id) || 0;
@@ -298,15 +323,6 @@ const formatType = (type) => {
     'glyhar': 'Глухое окно',
   };
   return map[type] || type;
-};
-
-const statusType = (status) => {
-  const map = {
-    'in_production': 'В производстве',
-    'assigned': 'Назначены сотрудники',
-    'final': 'Готов'
-  };
-  return map[status] || status;
 };
 
 const getValue = (product, employeeId) => {
@@ -459,18 +475,18 @@ const exportToExcel = async () => {
 
   // --- 1. Холодные и тёплые окна ---
   const coldWindows = products.filter(p =>
-      p.type === 'window' && normalize(p.systema).includes('х')
+      (p.type === 'window' || p.type === 'glyhar') && normalize(p.systema).includes('х') && normalize(p.type_izd) !== 'витраж к двери'
   );
 
   const hotWindows = products.filter(p =>
-      p.type === 'window' && normalize(p.systema).includes('т')
+      (p.type === 'window' || p.type === 'glyhar') && normalize(p.systema).includes('т') && normalize(p.type_izd) !== 'витраж к двери'
   );
 
   // --- 2. Глухие окна (только те, где НЕ витраж к двери) ---
-  const glyhar = products.filter(p =>
-      p.type === 'glyhar' &&
-      normalize(p.type_izd) !== 'витраж к двери'
-  );
+  // const glyhar = products.filter(p =>
+  //     p.type === 'glyhar' &&
+  //     normalize(p.type_izd) !== 'витраж к двери'
+  // );
 
   // --- 3. Витраж к двери (отдельно) ---
   const vitrajDoors = products.filter(p =>
@@ -478,7 +494,7 @@ const exportToExcel = async () => {
       normalize(p.type_izd) === 'витраж к двери'
   );
 
-  const allWindows = [...coldWindows, ...hotWindows, ...glyhar];
+  const allWindows = [...coldWindows, ...hotWindows, ...vitrajDoors];
 
   // const coldWindows = products.filter(p =>
   //     p.type === 'window' && normalize(p.systema).includes('х')
@@ -487,13 +503,20 @@ const exportToExcel = async () => {
   //     p.type === 'window' && normalize(p.systema).includes('т')
   // );
   //const allWindows = products.filter(p => p.type === 'window' || p.type === 'glyhar');
-  const doors1p = products.filter(p => p.type === 'door' && ['1П', '1Пт'].includes(p.type_izd));
-  const doors15p = products.filter(p => p.type === 'door' && ['1.5П', '1.5Пт'].includes(p.type_izd));
-  const doors2p = products.filter(p => p.type === 'door' && ['2П', '2Пт'].includes(p.type_izd));
+  // const doors1p = products.filter(p => p.type === 'door' && ['1П', '1Пт'].includes(p.type_izd));
+  // const doors15p = products.filter(p => p.type === 'door' && ['1.5П', '1.5Пт'].includes(p.type_izd));
+  // const doors2p = products.filter(p => p.type === 'door' && ['2П', '2Пт'].includes(p.type_izd));
+
+  const doors1p = products.filter(p =>p.type ==='door' && (p.type_izd === '1П' || p.type_izd === '1Пт'));
+  const doors15p = products.filter(p =>p.type ==='door' && (p.type_izd === '1.5П' || p.type_izd === '1.5Пт'));
+  const doors2p = products.filter(p =>p.type ==='door' && (p.type_izd === '2П' || p.type_izd === '2Пт'));
+
   //const glyhar = products.filter(p => p.type === 'glyhar' && p.type_izd === 'окно гл.');
   //const vitrajDoors = products.filter(p => normalize(p.type_izd) === 'витраж к двери');
-  const loggias = products.filter(p => p.type === 'loggia');
-  const mosquitoNets = products.filter(p => p.type === 'ms');
+
+  //TODO
+  //const loggias = products.filter(p => p.type === 'loggia');
+  //const mosquitoNets = products.filter(p => p.type === 'ms');
 
   const coldStats = aggregate(coldWindows);
   const hotStats = aggregate(hotWindows);
@@ -503,10 +526,11 @@ const exportToExcel = async () => {
   const door2pStats = aggregate(doors2p);
   const vitrajStats = aggregate(vitrajDoors);
   //const glyharStats = aggregate(glyhar);
-  const loggiaStats = aggregate(loggias);
-  const mosquitoStats = aggregate(mosquitoNets);
+  //TODO на будущее
+  //const loggiaStats = aggregate(loggias);
+  //const mosquitoStats = aggregate(mosquitoNets);
 
-  const total = [allWindowStats, door1pStats, door15pStats, door2pStats, vitrajStats, loggiaStats, mosquitoStats] //glyharStats
+  const total = [allWindowStats, door1pStats, door15pStats, door2pStats] //glyharStats vitrajStats
       .reduce((acc, g) => ({
         count: acc.count + g.count,
         sqr: acc.sqr + g.sqr,
@@ -553,14 +577,14 @@ const exportToExcel = async () => {
 
   addSummaryRow('Холодные окна', '', coldStats);
   addSummaryRow('Теплые окна', '', hotStats);
-  addSummaryRow('Всего окон', '', allWindowStats);
   addSummaryRow('Витраж к двери', '', vitrajStats);
+  addSummaryRow('Всего окон', '', allWindowStats);
   addSummaryRow('Всего 1П дверей', '', door1pStats);
   addSummaryRow('Всего 1.5П дверей', '', door15pStats);
   addSummaryRow('Всего 2П дверей', '', door2pStats);
   //if (glyharStats.count > 0) addSummaryRow('Глухие окна', '', glyharStats);
-  addSummaryRow('Лоджии', '', loggiaStats);
-  addSummaryRow('Москитные сетки', '', mosquitoStats);
+  //addSummaryRow('Лоджии', '', loggiaStats);
+  //addSummaryRow('Москитные сетки', '', mosquitoStats);
 
   worksheet.addRow([]);
   const totalRow = worksheet.addRow(['', 'ИТОГО:', totalRounded.count, totalRounded.sqr, totalRounded.hours, totalRounded.money]);
@@ -589,34 +613,19 @@ const exportToExcel = async () => {
     { type_izd: 'окно пов.-отк.', profile: 'сх' },
     { type_izd: 'окно пов.-отк.', profile: 'ш' },
     { type_izd: '1П', profile: 'ах'},
-    { type_izd: '1П', profile: 'ат'},
-    { type_izd: '1П', profile: 'ст'},
     { type_izd: '1П', profile: 'сх'},
-    { type_izd: '1П', profile: 'ш'},
-    { type_izd: '1Пт', profile: 'ах' },
     { type_izd: '1Пт', profile: 'ат' },
     { type_izd: '1Пт', profile: 'ст' },
-    { type_izd: '1Пт', profile: 'сх' },
     { type_izd: '1Пт', profile: 'ш' },
     { type_izd: '1.5П', profile: 'ах' },
-    { type_izd: '1.5П', profile: 'ат' },
-    { type_izd: '1.5П', profile: 'ст' },
     { type_izd: '1.5П', profile: 'сх' },
-    { type_izd: '1.5П', profile: 'ш' },
-    { type_izd: '1.5Пт', profile: 'ах' },
     { type_izd: '1.5Пт', profile: 'ат' },
     { type_izd: '1.5Пт', profile: 'ст' },
-    { type_izd: '1.5Пт', profile: 'сх' },
     { type_izd: '1.5Пт', profile: 'ш' },
     { type_izd: '2П', profile: 'ах' },
-    { type_izd: '2П', profile: 'ат' },
-    { type_izd: '2П', profile: 'ст' },
     { type_izd: '2П', profile: 'сх' },
-    { type_izd: '2П', profile: 'ш' },
-    { type_izd: '2Пт', profile: 'ах' },
     { type_izd: '2Пт', profile: 'ат' },
     { type_izd: '2Пт', profile: 'ст' },
-    { type_izd: '2Пт', profile: 'сх' },
     { type_izd: '2Пт', profile: 'ш' },
   ];
 
@@ -730,8 +739,7 @@ const loadData = async () => {
     params.append('to', filterTo.value);
     params.append('order_num', orderNum.value);
 
-    // console.log("PARRRfR", filterFrom.value);
-    // console.log("PARRRtO", filterTo.value);
+
 
     const res = await axios.get(`http://localhost:8080/api/all_final_order?${params}`);
     employees.value = res.data.employees;
@@ -892,6 +900,13 @@ th:nth-child(16) {
   color: #2c5282;
 }
 
+td:nth-child(14),
+th:nth-child(14) {
+  background-color: #ebf8ff !important;
+  font-weight: bold;
+  color: royalblue;
+}
+
 .employee-col {
   min-width: 60px;
 }
@@ -1004,5 +1019,21 @@ th:nth-child(16) {
 .clickable-row:hover {
   background-color: #f0f8ff !important;
 }
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: white;
+  line-height: 1.3;
+  min-height: 22px;
+  box-sizing: border-box;
+}
+
+.status-badge.status-final { background: #28a745;  }
+.status-badge.status-assigned{ background: #fd7e14; }
+
 
 </style>

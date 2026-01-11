@@ -1,4 +1,3 @@
-<!-- OrdersList.vue -->
 <template>
   <div class="orders-page">
     <h2>Нормированные заказы</h2>

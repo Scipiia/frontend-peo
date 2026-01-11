@@ -1,6 +1,6 @@
 <script setup>
 /* eslint-disable */
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 const props = defineProps({
   product: Object,
@@ -13,7 +13,38 @@ const emit = defineEmits(['close', 'cancel']);
 const localProduct = ref({ ...props.product });
 
 // Список допустимых значений для customer_type
-const customerTypeOptions = ['к', 'ч', 'д'];
+const customerTypeOptions = [
+  { value: 'к', label: 'корпоративный' },
+  { value: 'ч', label: 'частный' },
+  { value: 'д', label: 'дилер' }
+];
+
+// список для уточнения двери
+const doorTypeOptions = [
+  '1П',
+  '1Пт',
+  '1.5П',
+  '1.5Пт',
+  '2П',
+  '2Пт'
+];
+
+const profileType = [
+  {value: 'сх', label: 'Сиал холодный'},
+  {value: 'ст', label: 'Сиал теплый'},
+  {value: 'ах', label: 'Алютех холодный'},
+  {value: 'ат', label: 'Алютех теплый'},
+  {value: 'щ', label: 'Шуко'},
+]
+
+const systemaType = [
+  {value: 'х', label: 'Холодная'},
+  {value: 'т', label: 'Тёплая'},
+]
+
+const isDoor = computed(() => {
+  return localProduct.value.type === 'door';
+});
 
 // список бригад
 const brigadeTypeOptions = ['бригада', 'бригада окон, дверей', 'бригада витражей'];
@@ -32,7 +63,8 @@ const validate = () => {
     { key: 'sqr', label: 'Площадь' },
     { key: 'brigade', label: 'Бригада' },
     { key: 'norm_money', label: 'Н/руб' },
-    { key: 'customer_type', label: 'Направление заказчика' }
+    { key: 'customer_type', label: 'Направление заказчика' },
+    { key: 'coefficient', label: 'Коэффициент'}
   ];
 
   requiredFields.forEach(field => {
@@ -65,6 +97,61 @@ const save = () => {
   }
 };
 
+// Флаг: пользователь вручную менял norm_money?
+const isNormMoneyEdited = ref(false);
+
+const recalculateNormMoney = () => {
+  if (isNormMoneyEdited.value) return;
+
+  const total = parseFloat(localProduct.value.total_time);
+  const coef = parseFloat(localProduct.value.coefficient);
+
+  if (!isNaN(total) && !isNaN(coef)) {
+    localProduct.value.norm_money = parseFloat((total * coef).toFixed(3));
+  }
+}
+
+// Следим за изменениями
+watch(
+    () => localProduct.value.coefficient,
+    () => {
+      if (!isNormMoneyEdited.value) {
+        recalculateNormMoney();
+      }
+    }
+);
+
+// Сбрасываем флаг при фокусе на поле norm_money
+const handleNormMoneyFocus = () => {
+  isNormMoneyEdited.value = false;
+};
+
+// При вводе в norm_money — ставим флаг
+const handleNormMoneyInput = (e) => {
+  isNormMoneyEdited.value = true;
+  localProduct.value.norm_money = parseFloat(e.target.value) || 0;
+};
+
+const initNormMoney = () => {
+  // Если norm_money уже задан (и не 0), оставляем как есть (финальный заказ)
+  if (localProduct.value.norm_money && localProduct.value.norm_money > 0) {
+    return;
+  }
+
+  const total = parseFloat(localProduct.value.total_time);
+  const coef = parseFloat(localProduct.value.coefficient);
+
+  console.log("SASAS", total)
+
+  if (!isNaN(total) && !isNaN(coef) && coef > 0) {
+    localProduct.value.norm_money = parseFloat((total * coef).toFixed(3));
+    isNormMoneyEdited.value = false;
+  }
+};
+
+// Выполняем инициализацию сразу
+initNormMoney();
+
 const cancel = () => {
   emit('cancel');
 };
@@ -88,16 +175,34 @@ const cancel = () => {
       <!-- Наименование -->
       <div class="form-group" :class="{ 'error': errors.type_izd }">
         <label>Наименование</label>
+
+        <!-- Для дверей — выпадающий список -->
+        <select
+            v-if="isDoor"
+            v-model="localProduct.type_izd"
+            class="form-select"
+            :class="{ 'invalid': errors.type_izd }"
+            @change="validate"
+        >
+          <option value="" disabled>Выберите тип двери</option>
+          <option v-for="opt in doorTypeOptions" :key="opt" :value="opt">
+            {{ opt }}
+          </option>
+        </select>
+
+        <!-- Для остальных — обычное поле -->
         <input
+            v-else
             v-model="localProduct.type_izd"
             class="form-input"
             :class="{ 'invalid': errors.type_izd }"
             @blur="validate"
         />
+
         <span v-if="errors.type_izd" class="error-text">Укажите наименование</span>
       </div>
 
-      <!-- Направление заказчика (выбор из 3 вариантов) -->
+      <!-- Направление заказчика -->
       <div class="form-group" :class="{ 'error': errors.customer_type }">
         <label>Направление заказчика</label>
         <select
@@ -106,9 +211,13 @@ const cancel = () => {
             :class="{ 'invalid': errors.customer_type }"
             @change="validate"
         >
-          <option value="" disabled>Выберите значение</option>
-          <option v-for="opt in customerTypeOptions" :key="opt" :value="opt">
-            {{ opt }}
+          <option value="" disabled>Выберите направление</option>
+          <option
+              v-for="opt in customerTypeOptions"
+              :key="opt.value"
+              :value="opt.value"
+          >
+            {{ opt.label }}
           </option>
         </select>
         <span v-if="errors.customer_type" class="error-text">Выберите направление</span>
@@ -117,24 +226,43 @@ const cancel = () => {
       <!-- Система -->
       <div class="form-group" :class="{ 'error': errors.systema }">
         <label>Система</label>
-        <input
+        <select
             v-model="localProduct.systema"
-            class="form-input"
+            class="form-select"
             :class="{ 'invalid': errors.systema }"
-            @blur="validate"
-        />
+            @change="validate"
+        >
+          <option value="" disabled>— Выберите систему —</option>
+          <option
+              v-for="opt in systemaType"
+              :key="opt.value"
+              :value="opt.value"
+          >
+            {{ opt.label }}
+          </option>
+        </select>
         <span v-if="errors.systema" class="error-text">Укажите систему</span>
       </div>
 
       <!-- Профиль -->
       <div class="form-group" :class="{ 'error': errors.profile }">
         <label>Профиль</label>
-        <input
-            v-model="localProduct.profile"
-            class="form-input"
-            :class="{ 'invalid': errors.profile }"
-            @blur="validate"
-        />
+        <select
+          v-model="localProduct.profile"
+          class="form-select"
+          :class="{'invalid': errors.profile}"
+          @change="validate"
+        >
+          <option value="" disabled>— Выберите профиль —</option>
+          <option
+            v-for="opt in profileType"
+            :key="opt.value"
+            :value="opt.value"
+          >
+            {{ opt.label }}
+          </option>
+
+        </select>
         <span v-if="errors.profile" class="error-text">Укажите профиль</span>
       </div>
 
@@ -170,12 +298,28 @@ const cancel = () => {
         <span v-if="errors.brigade" class="error-text">Выберите бригаду</span>
       </div>
 
+<!--      коэффициент-->
+      <div class="form-group" :class="{ 'error': errors.coefficient }">
+        <label>Коэффициент</label>
+        <input
+            v-model.number="localProduct.coefficient"
+            type="number"
+            step="0.01"
+            min="0"
+            class="form-input"
+            :class="{ 'invalid': errors.coefficient }"
+            @blur="validate"
+        />
+        <span v-if="errors.coefficient" class="error-text">Введите коэффициент</span>
+      </div>
 
       <!-- Н/руб -->
       <div class="form-group" :class="{ 'error': errors.norm_money }">
         <label>Н/руб</label>
         <input
-            v-model.number="localProduct.norm_money"
+            :value="localProduct.norm_money"
+            @input="handleNormMoneyInput"
+            @focus="handleNormMoneyFocus"
             type="number"
             step="0.01"
             min="0"

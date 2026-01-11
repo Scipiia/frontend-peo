@@ -198,8 +198,8 @@ onMounted(async () => {
     const subs = processedItems.filter(i => i.part_type === 'sub');
 
 
-    console.log("MAIN", main);
-    console.log("SUB", subs);
+    // console.log("MAIN", main);
+    // console.log("SUB", subs);
 
     assembly.value = { main, subs };
   } catch (err) {

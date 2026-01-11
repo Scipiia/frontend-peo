@@ -20,7 +20,7 @@ function aggregate(items) {
     acc.count += parseFloat(p.count) || 0;
     acc.sqr += parseFloat(p.sqr) || 0;
     acc.hours += parseFloat(p.total_time) || 0;
-    acc.money += parseFloat(p.money) || 0;
+    acc.money += parseFloat(p.norm_money) || 0;
     return acc;
   }, { count: 0, sqr: 0, hours: 0, money: 0 });
 
@@ -35,29 +35,20 @@ function aggregate(items) {
 const summaryData = computed(() => {
   const products = props.products;
 
-  // const coldWindows = products.filter(p =>
-  //     (p.type === 'window' || (p.type === 'glyhar' && p.type_izd !== 'витраж к двери')) && normalize(p.systema).includes('х')
-  // );
-  // console.log("PRPRPRP", products)
-  //
-  // const hotWindows = products.filter(p =>
-  //     (p.type === 'window' || (p.type === 'glyhar' && p.type_izd !== normalize(p.type_izd).includes('Витраж к двери'))) && normalize(p.systema).includes('т') //normalize(p.type_izd).includes('витраж к двери'))
-  // );
-
   // --- 1. Холодные и тёплые окна ---
   const coldWindows = products.filter(p =>
-      p.type === 'window' && normalize(p.systema).includes('х')
+      (p.type === 'window' || p.type === 'glyhar') && normalize(p.systema).includes('х') && normalize(p.type_izd) !== 'витраж к двери'
   );
 
   const hotWindows = products.filter(p =>
-      p.type === 'window' && normalize(p.systema).includes('т')
+      (p.type === 'window' || p.type === 'glyhar') && normalize(p.systema).includes('т') && normalize(p.type_izd) !== 'витраж к двери'
   );
 
   // --- 2. Глухие окна (только те, где НЕ витраж к двери) ---
-  const glyhar = products.filter(p =>
-      p.type === 'glyhar' &&
-      normalize(p.type_izd) !== 'витраж к двери'
-  );
+  // const glyhar = products.filter(p =>
+  //     p.type === 'glyhar' &&
+  //     normalize(p.type_izd) !== 'витраж к двери'
+  // );
 
   // --- 3. Витраж к двери (отдельно) ---
   const vitrajDoors = products.filter(p =>
@@ -66,18 +57,11 @@ const summaryData = computed(() => {
   );
 
   // --- 4. Все окна = cold + hot + чистые глухари ---
-  const allWindows = [...coldWindows, ...hotWindows, ...glyhar];
+  const allWindows = [...coldWindows, ...hotWindows, ...vitrajDoors];
 
-  //const allWindows = products.filter(p => p.type === 'window');
   const allDoors1p = products.filter(p =>p.type ==='door' && (p.type_izd === '1П' || p.type_izd === '1Пт'));
   const allDoors15p = products.filter(p =>p.type ==='door' && (p.type_izd === '1.5П' || p.type_izd === '1.5Пт'));
   const allDoors2p = products.filter(p =>p.type ==='door' && (p.type_izd === '2П' || p.type_izd === '2Пт'));
-  //const glyhar = products.filter(p =>p.type ==='glyhar' && p.type_izd === 'окно гл.');
-
-  // const vitrajDoors = products.filter(p => {
-  //   const value = normalize(p.type_izd);
-  //   return value === 'витраж к двери';
-  // });
 
   const loggias = products.filter(p => p.type === 'loggia');
   const mosquitoNets = products.filter(p => p.type === 'ms');
@@ -85,7 +69,7 @@ const summaryData = computed(() => {
   const coldStats = aggregate(coldWindows);
   const hotStats = aggregate(hotWindows);
   const allWindowStats = aggregate(allWindows);
-  const glyharStats = aggregate(glyhar);
+  //const glyharStats = aggregate(glyhar);
   const vitrajStats = aggregate(vitrajDoors);
 
   const loggiaStats = aggregate(loggias);
@@ -99,9 +83,9 @@ const summaryData = computed(() => {
   const windowGroups = [
     { type_izd: 'Холодные окна', profile: 'х', ...coldStats },
     { type_izd: 'Теплые окна', profile: 'т', ...hotStats },
-    { type_izd: 'Всего глухих окон', profile: '', ...glyharStats },
-    { type_izd: 'Всего окон', profile: '', ...allWindowStats },
+    //{ type_izd: 'Всего глухих окон', profile: '', ...glyharStats },
     { type_izd: 'Витраж к двери', profile: '', ...vitrajStats },
+    { type_izd: 'Всего окон', profile: '', ...allWindowStats },
     { type_izd: 'Всего 1П дверей', profile: '', ...allDoor1p },
     { type_izd: 'Всего 1.5П дверей', profile: '', ...allDoor15p },
     { type_izd: 'Всего 2П дверей', profile: '', ...allDoor2p },
@@ -119,8 +103,8 @@ const summaryData = computed(() => {
     ...mosquitoStats
   }] : [];
 
-  // Общие итоги
-  const total = [allWindowStats, vitrajStats,  loggiaStats, mosquitoStats, allDoor1p, allDoor15p, allDoor2p, glyharStats]
+  // Общие итоги(позже добавятся витражи, москитки)
+  const total = [allWindowStats, allDoor1p, allDoor15p, allDoor2p]
       .reduce((acc, g) => ({
         count: acc.count + g.count,
         sqr: acc.sqr + g.sqr,
@@ -156,68 +140,63 @@ const expectedGroups = [
   { type_izd: 'окно пов.-отк.', profile: 'сх' },
   { type_izd: 'окно пов.-отк.', profile: 'ш' },
   { type_izd: '1П', profile: 'ах'},
-  { type_izd: '1П', profile: 'ат'},
-  { type_izd: '1П', profile: 'ст'},
   { type_izd: '1П', profile: 'сх'},
-  { type_izd: '1П', profile: 'ш'},
-  { type_izd: '1Пт', profile: 'ах' },
   { type_izd: '1Пт', profile: 'ат' },
   { type_izd: '1Пт', profile: 'ст' },
-  { type_izd: '1Пт', profile: 'сх' },
   { type_izd: '1Пт', profile: 'ш' },
   { type_izd: '1.5П', profile: 'ах' },
-  { type_izd: '1.5П', profile: 'ат' },
-  { type_izd: '1.5П', profile: 'ст' },
   { type_izd: '1.5П', profile: 'сх' },
-  { type_izd: '1.5П', profile: 'ш' },
-  { type_izd: '1.5Пт', profile: 'ах' },
   { type_izd: '1.5Пт', profile: 'ат' },
   { type_izd: '1.5Пт', profile: 'ст' },
-  { type_izd: '1.5Пт', profile: 'сх' },
   { type_izd: '1.5Пт', profile: 'ш' },
   { type_izd: '2П', profile: 'ах' },
-  { type_izd: '2П', profile: 'ат' },
-  { type_izd: '2П', profile: 'ст' },
   { type_izd: '2П', profile: 'сх' },
-  { type_izd: '2П', profile: 'ш' },
-  { type_izd: '2Пт', profile: 'ах' },
   { type_izd: '2Пт', profile: 'ат' },
   { type_izd: '2Пт', profile: 'ст' },
-  { type_izd: '2Пт', profile: 'сх' },
-  { type_izd: '2Пт', profile: 'ш' },
+  { type_izd: '2Пт', profile: 'ш' }
 ];
 
-function getFixedGrouping(products) {
+function getFixedGroupingWithUnmatched(products) {
   const mapKey = (p) => {
     const typeIzd = (p.type_izd || '').trim();
     const profile = (p.profile == null ? '' : String(p.profile).trim());
     return `${typeIzd}__${profile}`;
   };
 
+  // Создаём множество ожидаемых ключей
+  const expectedKeys = new Set(
+      expectedGroups.map(g => {
+        const typeIzd = (g.type_izd || '').trim();
+        const profile = (g.profile == null ? '' : String(g.profile).trim());
+        return `${typeIzd}__${profile}`;
+      })
+  );
 
   const productMap = new Map();
+  const unmatched = []; // ← сюда попадут "потерянные"
 
   products.forEach(p => {
     const key = mapKey(p);
-    if (!productMap.has(key)) {
-      productMap.set(key, { count: 0, sqr: 0, hours: 0, money: 0 });
-
+    if (expectedKeys.has(key)) {
+      if (!productMap.has(key)) {
+        productMap.set(key, { count: 0, sqr: 0, hours: 0, money: 0 });
+      }
+      const acc = productMap.get(key);
+      acc.count += p.count || 0;
+      acc.sqr += p.sqr || 0;
+      acc.hours += p.total_time || 0;
+      acc.money += p.norm_money || 0;
+    } else {
+      // Изделие не попало ни в одну группу
+      unmatched.push(p);
     }
-    const acc = productMap.get(key);
-    acc.count += p.count || 0;
-    acc.sqr += p.sqr || 0;
-    acc.hours += p.total_time || 0;
-    acc.money += p.money || 0;
   });
 
-
-
-  return expectedGroups.map(group => {
+  // Формируем фиксированные группы
+  const fixedGroups = expectedGroups.map(group => {
     const safeProfile = (group.profile == null ? '' : String(group.profile).trim());
     const key = `${group.type_izd.trim()}__${safeProfile}`;
-
     const data = productMap.get(key) || { count: 0, sqr: 0, hours: 0, money: 0 };
-
     return {
       type_izd: group.type_izd,
       profile: group.profile,
@@ -227,13 +206,29 @@ function getFixedGrouping(products) {
       money: parseFloat(data.money.toFixed(3))
     };
   });
+
+  return { fixedGroups, unmatched };
 }
 
-const fixedGroups = computed(() => {
-  return getFixedGrouping(props.products);
+const groupingResult = computed(() => {
+  return getFixedGroupingWithUnmatched(props.products);
 });
 
+const fixedGroupsShow = computed(() => groupingResult.value.fixedGroups);
+const unmatchedProducts = computed(() => groupingResult.value.unmatched);
+
 const isDetailsOpen = ref(false);
+
+const formatType = (type) => {
+  const map = {
+    'window': 'Окно',
+    'door': 'Дверь',
+    'loggia': 'Лоджия',
+    'ms': 'Москитная сетка',
+    'glyhar': 'Глухое окно',
+  };
+  return map[type] || type;
+};
 
 </script>
 
@@ -339,7 +334,8 @@ const isDetailsOpen = ref(false);
 
   <!-- Детальная группировка (по клику) -->
   <transition name="slide">
-    <div v-if="isDetailsOpen && fixedGroups.length > 0" class="summary-stats detailed-grouping">
+<!--   все изделия попавшие в условия фильтра -->
+    <div v-if="isDetailsOpen && fixedGroupsShow.length > 0" class="summary-stats detailed-grouping">
       <h4>Детализация по профилям</h4>
       <table class="summary-table">
         <thead>
@@ -353,7 +349,7 @@ const isDetailsOpen = ref(false);
         </tr>
         </thead>
         <tbody>
-        <tr v-for="g in fixedGroups" :key="`${g.type_izd}_${g.profile}`">
+        <tr v-for="g in fixedGroupsShow" :key="`${g.type_izd}_${g.profile}`">
           <td>{{ g.type_izd }}</td>
           <td>{{ g.profile }}</td>
           <td>{{ g.count }}</td>
@@ -363,6 +359,33 @@ const isDetailsOpen = ref(false);
         </tr>
         </tbody>
       </table>
+
+      <!--    не попавшие в фильтры изделия-->
+      <div v-if="isDetailsOpen && unmatchedProducts.length > 0" class="summary-stats unmatched-grouping">
+        <h4 style="color: #e53e3e;">⚠️ Изделия, не попавшие в отчёт</h4>
+        <p style="font-size: 12px; color: #e53e3e; margin-bottom: 8px;">
+          Эти изделия не соответствуют ни одному из правил группировки.
+          Проверьте написание «Наименование» и «Профиль».
+        </p>
+        <table class="summary-table">
+          <thead>
+          <tr>
+            <th>Заказ</th>
+            <th>Наименование</th>
+            <th>Профиль</th>
+            <th>Тип</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr v-for="p in unmatchedProducts" :key="p.id">
+            <td>{{ p.order_num }}</td>
+            <td>{{ p.type_izd }}</td>
+            <td>{{ p.profile }}</td>
+            <td>{{ formatType(p.type) }}</td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </transition>
 </template>
@@ -437,6 +460,11 @@ const isDetailsOpen = ref(false);
 
 .btn-toggle:hover {
   background-color: #e2e8f0;
+}
+
+.unmatched-grouping {
+  border: 1px solid #fed7d7;
+  background-color: #fff5f5;
 }
 
 </style>

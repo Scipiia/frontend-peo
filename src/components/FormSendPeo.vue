@@ -127,6 +127,10 @@
         {{ totalHours }} ч ({{ totalMinutes }} мин)
       </div>
 
+      <div v-if="calculationContext" class="calculation-info">
+        <small>Импостов в материалах найдено: {{ calculationContext.ImpostCount }}</small>
+      </div>
+
       <!-- Таблица операций -->
       <table class="norm-table">
         <thead>
@@ -174,6 +178,14 @@
             @click="multiplyAllCounts()"
         >
           Умножить на кол-во изделий ({{ cardInfo.count }})
+        </button>
+        <button
+            type="button"
+            @click="recalculateNorms"
+            :disabled="!selectedTemplate || loading"
+            class="btn-recalculate"
+        >
+          Рассчитать нормы по материалам
         </button>
         <button @click="saveNormirovka" :disabled="loading" class="btn-save">
           {{ loading ? 'Сохраняем...' : 'Сохранить нормировку' }}
@@ -563,23 +575,88 @@ function saveNormirovka() {
       });
 }
 
-// --- Очистка формы ---
-// function clearForm() {
-//   if (confirm("Очистить форму?")) {
-//     fullForm.value = null;
-//   }
-// }
+//TODO новая логика для расчета норм по материалам
+const calculationContext = ref(null);
 
-// --- Переход к печати ---
-// function goToPrint() {
-//   if (!lastRootId.value) {
-//     //alert("❌ Нет данных для печати. Сначала сохраните основное изделие.");
-//     return;
-//   }
-//
-//   // Переходим на страницу печати сборки
-//   window.location.href = `/norm/order-norm/print/${lastRootId.value}`;
-// }
+async function recalculateNorms() {
+  if (!fullForm.value || !cardInfo.value.order_num || !cardInfo.value.position) {
+    alert('Недостаточно данных для расчёта');
+    return;
+  }
+
+  loading.value = true;
+  try {
+    const categoryName = fullForm.value.type; // например, "Окна"
+    //const typeIzd = typeIzdMap[categoryName] || categoryName.toLowerCase();
+
+    const response = await fetch('http://localhost:8080/api/materials/calculation', {
+      method: "POST",
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        order_num: cardInfo.value.order_num, // ← уточните: это строка или число?
+        position: parseInt(cardInfo.value.position),
+        type: categoryName,
+        template: fullForm.value.code
+      })
+    });
+
+    //console.log("RESP", response);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Ошибка расчёта: ${response.status} — ${errorText}`);
+    }
+
+    const recalculatedOps = await response.json();
+
+    calculationContext.value = recalculatedOps.context;
+
+
+    // Заменяем операции, но сохраняем структуру (rate, group и т.д.)
+    const newOperations = fullForm.value.operations.map(existingOp => {
+      // Ищем операцию с таким же именем в результате расчёта
+      const recalculated = recalculatedOps.operation.find(op => op.name === existingOp.name);
+
+      if (recalculated) {
+        // Сохраняем group и rate, но обновляем значения
+        return {
+          ...existingOp,
+          count: recalculated.count ?? existingOp.count,
+          dynamicValue: recalculated.value ?? existingOp.dynamicValue,
+          minutes: recalculated.minutes ?? existingOp.minutes,
+          // rate пересчитаем ниже
+        };
+      }
+      // Если операции нет в ответе — оставляем как есть (маловероятно)
+      return existingOp;
+    });
+
+    // Пересчитываем rate для всех операций после обновления
+    newOperations.forEach(op => {
+      if (op.count > 0) {
+        op.rate = op.dynamicValue / op.count;
+      } else {
+        op.rate = op.dynamicValue; // или 0 — зависит от логики
+      }
+    });
+
+    // Обновляем форму
+    fullForm.value.operations = newOperations;
+
+    // Также можно обновить total_time
+    const total = newOperations.reduce((sum, op) => sum + op.dynamicValue, 0);
+    fullForm.value.total_time = parseFloat(total.toFixed(3));
+
+  } catch (err) {
+    console.error('Ошибка автоматического расчёта:', err);
+    alert(`Не удалось рассчитать нормы: ${err.message}`);
+  } finally {
+    loading.value = false;
+  }
+}
+
+//TODO end
+
 </script>
 
 <style scoped>
@@ -826,7 +903,7 @@ h2 {
   gap: 10px;
 }
 
-.btn-cancel, .btn-save, .btn-print, .multiply-count-btn {
+.btn-cancel, .btn-save, .btn-print, .multiply-count-btn, .btn-recalculate {
   padding: 10px 16px;
   border: none;
   border-radius: 6px;
@@ -835,39 +912,18 @@ h2 {
 }
 
 
-.btn-save, .multiply-count-btn {
+.btn-save, .multiply-count-btn, .btn-recalculate{
   background: #28a745;
   color: white;
 }
 
-.form-custom-text {
-  width: 95%;
-  padding: 10px;
-  margin-top: 5px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  text-align: center;
+
+.calculation-info {
+  background: #e3f2fd;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  font-size: 16px;
 }
-
-/*.multiply-count-btn {*/
-/*  margin: 16px 0;*/
-/*  padding: 10px 16px;*/
-/*  background-color: #4caf50;*/
-/*  color: white;*/
-/*  border: none;*/
-/*  border-radius: 6px;*/
-/*  font-size: 14px;*/
-/*  cursor: pointer;*/
-/*  transition: background-color 0.2s;*/
-/*}*/
-
-/*.multiply-count-btn:hover {*/
-/*  background-color: #42a545;*/
-/*}*/
-
-/*.multiply-count-btn:disabled {*/
-/*  background-color: #ccc;*/
-/*  cursor: not-allowed;*/
-/*}*/
 
 </style>

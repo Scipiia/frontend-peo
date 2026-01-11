@@ -57,7 +57,6 @@
         </tr>
 
         <!-- Доп. операции -->
-        <!-- Доп. операции -->
         <tr v-for="(extra, index) in item.extraOperations" :key="extra.operation_name || `custom_${index}`">
           <td>
             <!-- Фиксированные операции: выбор из списка -->
